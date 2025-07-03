@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gráfico de Tráfego por Switch</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<h2>Tráfego por Switch (DPID)</h2>
+<canvas id="trafficChart" width="800" height="400"></canvas>
+
+<script>
+async function fetchTrafficData() {
+    const res = await fetch('/api/traffic');
+    const json = await res.json();
+    return json.traffic || [];
+}
+
+async function drawChart() {
+    const trafficData = await fetchTrafficData();
+
+    const labels = trafficData.map(item => 'Switch ' + item.dpid);
+    const bytesData = trafficData.map(item => item.bytes);
+
+    const ctx = document.getElementById('trafficChart').getContext('2d');
+
+    if(window.trafficChartInstance) {
+        window.trafficChartInstance.data.labels = labels;
+        window.trafficChartInstance.data.datasets[0].data = bytesData;
+        window.trafficChartInstance.update();
+    } else {
+        window.trafficChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Bytes Totais',
+                    data: bytesData,
+                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            // Formata valores grandes (ex: 1000 -> 1K)
+                            callback: function(value) {
+                                if (value >= 1000000) return value / 1000000 + 'M';
+                                if (value >= 1000) return value / 1000 + 'K';
+                                return value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Atualiza o gráfico a cada 5 segundos
+drawChart();
+setInterval(drawChart, 5000);
+</script>
+</body>
+</html>
