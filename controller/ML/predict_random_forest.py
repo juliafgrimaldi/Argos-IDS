@@ -3,10 +3,12 @@ import numpy as np
 
 def predict_random_forest(model, selector, encoder, imputer, scaler, filename, numeric_columns, categorical_columns):
     df = pd.read_csv(filename)
+    all_columns = ['time', 'dpid', 'in_port', 'eth_src', 'eth_dst', 'packets', 'bytes', 'duration_sec']
+    df_full = df[all_columns]
 
     # Pré-processamento
-    df_numeric = df[numeric_columns]
-    df_categorical = df[categorical_columns].astype(str)
+    df_numeric = df_full[numeric_columns]
+    df_categorical = df_full[categorical_columns].astype(str)
 
     X_num = imputer.transform(df_numeric)
     X_cat = encoder.transform(df_categorical)
