@@ -73,7 +73,7 @@ class ControllerAPI(app_manager.RyuApp):
 
     def collect_and_store_stats(self, dpid):
         try:
-            response = requests.get(f"{self.api_url}{dpid}")
+            response = requests.get("{}{}".format(self.api_url, dpid))
             response.raise_for_status()
             flow_stats = response.json().get(str(dpid), [])
             rows = []
