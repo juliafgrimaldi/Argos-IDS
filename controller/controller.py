@@ -19,7 +19,7 @@ class ControllerAPI(app_manager.RyuApp):
         try:
             self.api_url = "http://127.0.0.1:8080/stats/flow/"
             self.block_url = "http://127.0.0.1:8080/stats/flowentry/add"
-            self.filename = "traffic_predict.csv"
+            self.filename = "./backend/traffic_predict.csv"
             self.numeric_columns = ['packets', 'bytes', 'duration_sec']
             self.categorical_columns = ['dpid', 'in_port', 'eth_src', 'eth_dst']
             self.models = {}
@@ -37,6 +37,7 @@ class ControllerAPI(app_manager.RyuApp):
             self.logger.info("ControllerAPI inicializou com sucesso")
         except Exception as e:
             self.logger.error("Erro no __init__: {}".format(e))
+
     def get_active_dpids(self):
         try:
             response = requests.get("http://127.0.0.1:8080/stats/switches")

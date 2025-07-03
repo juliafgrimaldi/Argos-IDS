@@ -1,69 +1,107 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Gráfico de Tráfego por Switch</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Argos IDS - Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <style>
+    body {
+      background-color: #121212;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .card {
+      background-color: #1f1f1f;
+      border: 1px solid #2c2c2c;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+
+    .card h4 {
+      color: #bbb;
+      margin-bottom: 8px;
+    }
+
+    .card h2 {
+      font-size: 2.5rem;
+      color: #fff;
+    }
+
+    .card small {
+      color: #999;
+    }
+
+    .header {
+      padding: 30px 20px 10px;
+    }
+
+    .nav {
+      margin-bottom: 20px;
+      padding: 10px 20px;
+    }
+
+    .nav a {
+      color: #bbb;
+      margin-right: 20px;
+      text-decoration: none;
+    }
+
+    .nav a.active {
+      color: #fff;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body>
-<h2>Tráfego por Switch (DPID)</h2>
-<canvas id="trafficChart" width="800" height="400"></canvas>
+  <div class="header">
+    <h1>Dashboard</h1>
+    <p>Welcome to Argos IDS – Your network security monitoring platform</p>
+  </div>
 
-<script>
-async function fetchTrafficData() {
-    const res = await fetch('/api/traffic');
-    const json = await res.json();
-    return json.traffic || [];
-}
+  <div class="nav">
+    <a href="#" class="active">Overview</a>
+    <a href="#">Alerts</a>
+    <a href="#">Network</a>
+    <a href="#">Reports</a>
+  </div>
 
-async function drawChart() {
-    const trafficData = await fetchTrafficData();
+  <div class="container">
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card text-white">
+          <h4>Switches Ativos</h4>
+          <h2 id="switch-count">...</h2>
+          <small class="text-muted">Contagem total dos datapaths ativos</small>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card text-white">
+          <h4>Hosts Ativos</h4>
+          <h2 id="host-count">...</h2>
+          <small class="text-muted">Total de hosts conectados na rede</small>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    const labels = trafficData.map(item => 'Switch ' + item.dpid);
-    const bytesData = trafficData.map(item => item.bytes);
-
-    const ctx = document.getElementById('trafficChart').getContext('2d');
-
-    if(window.trafficChartInstance) {
-        window.trafficChartInstance.data.labels = labels;
-        window.trafficChartInstance.data.datasets[0].data = bytesData;
-        window.trafficChartInstance.update();
-    } else {
-        window.trafficChartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Bytes Totais',
-                    data: bytesData,
-                    backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            // Formata valores grandes (ex: 1000 -> 1K)
-                            callback: function(value) {
-                                if (value >= 1000000) return value / 1000000 + 'M';
-                                if (value >= 1000) return value / 1000 + 'K';
-                                return value;
-                            }
-                        }
-                    }
-                }
-            }
-        });
+  <script>
+    async function fetchOverview() {
+      try {
+        const res = await fetch('/api/overview');
+        const data = await res.json();
+        document.getElementById('switch-count').textContent = data.switches ?? 'N/A';
+        document.getElementById('host-count').textContent = data.hosts ?? 'N/A';
+      } catch (e) {
+        console.error("Erro ao carregar dados:", e);
+        document.getElementById('switch-count').textContent = 'Erro';
+        document.getElementById('host-count').textContent = 'Erro';
+      }
     }
-}
 
-// Atualiza o gráfico a cada 5 segundos
-drawChart();
-setInterval(drawChart, 5000);
-</script>
+    fetchOverview();
+  </script>
 </body>
 </html>

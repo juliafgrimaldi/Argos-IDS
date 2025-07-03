@@ -28,3 +28,18 @@ def get_traffic():
     # Converte para lista de dicts para JSON
     data = traffic.to_dict(orient='records')
     return {"traffic": data}
+
+@app.get("/api/overview")
+def get_network_overview():
+    if not os.path.exists(CSV_FILE):
+        return {"error": "Arquivo CSV não encontrado."}
+
+    df = pd.read_csv(CSV_FILE)
+
+    num_switches = df['dpid'].nunique()
+    num_hosts = df['eth_src'].nunique()
+
+    return {
+        "switches": num_switches,
+        "hosts": num_hosts
+    }
