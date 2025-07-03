@@ -379,7 +379,7 @@
       const dstMac = document.getElementById('dstSelect').value;
       const inPort = document.getElementById('inPort').value;
 
-      fetch('/api/block', {
+      fetch('/block', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
