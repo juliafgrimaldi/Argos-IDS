@@ -105,3 +105,19 @@ def get_switches():
     return {"switches": switches}
 
 
+@app.get("/api/hosts")
+def get_hosts():
+    if not os.path.exists(CSV_FILE):
+        return {"error": "Arquivo CSV não encontrado."}
+
+    df = pd.read_csv(CSV_FILE)
+
+    if 'eth_src' not in df.columns:
+        return {"error": "CSV não contém a coluna 'eth_src'."}
+
+    hosts = df['eth_src'].dropna().unique().tolist()
+    return {
+        "hosts": [{"mac": mac} for mac in hosts]
+    }
+
+
