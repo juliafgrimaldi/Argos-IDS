@@ -96,8 +96,8 @@
       const topology = await fetchTopologyData();
 
       // Update cards
-      document.getElementById('switches').textContent = overview.switches ?? 'N/A';
-      document.getElementById('hosts').textContent = overview.hosts ?? 'N/A';
+      document.getElementById('switches').textContent = topology.switches ?? 'N/A';
+      document.getElementById('hosts').textContent = topology.hosts ?? 'N/A';
 
 
       // Render chart
