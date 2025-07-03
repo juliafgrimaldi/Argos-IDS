@@ -52,10 +52,10 @@ class ControllerAPI(app_manager.RyuApp):
             with open("models/{}_bundle.pkl".format(name), "rb") as f:
                 return pickle.load(f)
 
-        self.models['decision_tree'] = load_bundle('decision_tree')
+        self.models['decision_tree'] = load_bundle('dt')
         self.models['knn'] = load_bundle('knn')
-        self.models['naive_bayes'] = load_bundle('naive_bayes')
-        self.models['random_forest'] = load_bundle('random_forest')
+        self.models['naive_bayes'] = load_bundle('nb')
+        self.models['random_forest'] = load_bundle('randomforest')
         self.models['svm'] = load_bundle('svm')
 
     def _initialize_csv(self):
