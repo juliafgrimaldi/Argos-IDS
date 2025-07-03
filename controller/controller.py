@@ -3,6 +3,8 @@ import os
 import time
 import requests
 import pandas as pd
+import socketio
+import asyncio
 from ryu.base import app_manager
 from ryu.lib import hub
 from ML.predict_knn import predict_knn
@@ -10,6 +12,9 @@ from ML.predict_svm import predict_svm
 from ML.predict_decision_tree import predict_decision_tree
 from ML.predict_naive_bayes import predict_naive_bayes
 from ML.predict_random_forest import predict_random_forest
+
+sio = socketio.AsyncServer(async_mode='asgi')
+app_socket = socketio.ASGIApp(sio)
 
 class ControllerAPI(app_manager.RyuApp):
     _CONTEXTS = {}
@@ -175,3 +180,21 @@ class ControllerAPI(app_manager.RyuApp):
                 self.logger.error("Failed to block traffic: {} {}".format(response.status_code, response.text))
         except Exception as e:
             self.logger.error("Error sending block rule: {}".format(e))
+
+
+@sio.event
+async def connect(sid, environ):
+    print("Conexão recebida:", sid)
+
+@sio.on("block_flow")
+async def handle_block(sid, data):
+    print("Comando recebido:", data)
+    dpid = data["dpid"]
+    eth_src = data["eth_src"]
+    eth_dst = data["eth_dst"]
+    in_port = data["in_port"]
+    
+    # chama o método do Ryu
+    app_instance = ControllerAPI._get_instance()
+    if app_instance:
+        app_instance.block_traffic(dpid, eth_src, eth_dst, in_port)

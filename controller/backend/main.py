@@ -1,14 +1,30 @@
 from fastapi import FastAPI
+import socketio
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import pandas as pd
 import os
 import datetime
+import socket
 
 app = FastAPI()
+sio = socketio.AsyncClient()
 
 CSV_FILE = 'traffic_predict.csv'
 
+@app.on_event("startup")
+async def startup_event():
+    await sio.connect("http://localhost:9000")  # Porta do servidor do Ryu
+
+@app.get("/block/{dpid}/{src}/{dst}/{port}")
+async def block_flow(dpid: int, src: str, dst: str, port: int):
+    await sio.emit("block_flow", {
+        "dpid": dpid,
+        "eth_src": src,
+        "eth_dst": dst,
+        "in_port": port
+    })
+    return {"status": "sent"}
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -67,3 +83,15 @@ def get_network_overview():
         "switches": num_switches,
         "hosts": num_hosts
     }
+
+@app.get("/api/switches")
+def get_switches():
+    if not os.path.exists(CSV_FILE):
+        return {"error": "Arquivo CSV não encontrado."}
+
+    df = pd.read_csv(CSV_FILE)
+    switches = df['dpid'].dropna().unique().tolist()
+
+    return {"switches": switches}
+
+

@@ -11,18 +11,34 @@
       font-family: 'Segoe UI', sans-serif;
       margin: 0;
       padding: 0;
+      display: flex;
     }
-    header {
-      padding: 20px;
+    aside {
+      width: 220px;
       background-color: #1f1f1f;
-      border-bottom: 1px solid #333;
-      text-align: center;
+      padding: 20px;
+      border-right: 1px solid #333;
+      height: 100vh;
     }
-    h1 {
-      margin: 0;
-      font-size: 24px;
+    aside h2 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    aside ul {
+      list-style: none;
+      padding: 0;
+    }
+    aside ul li {
+      margin: 10px 0;
+      cursor: pointer;
+      color: #ccc;
+    }
+    aside ul li:hover {
+      color: #fff;
+      text-decoration: underline;
     }
     .container {
+      flex: 1;
       padding: 20px;
     }
     .cards {
@@ -53,32 +69,64 @@
       padding: 20px;
       border-radius: 10px;
     }
+    .hidden { display: none; }
+    select {
+      background-color: #2e2e2e;
+      color: #fff;
+      padding: 10px;
+      border-radius: 5px;
+      border: none;
+    }
+    button {
+      padding: 10px;
+      margin-left: 10px;
+      background-color: #444;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Dashboard - Argos IDS</h1>
-    <p>Welcome to Argos IDS - Your network security monitoring platform</p>
-  </header>
+  <aside>
+    <h2>Menu</h2>
+    <ul>
+      <li onclick="showSection('dashboard')">My Network</li>
+      <li onclick="showSection('block')">Block Traffic</li>
+    </ul>
+  </aside>
 
   <div class="container">
-    <div class="cards">
-      <div class="card">
-        <h2>Switches Ativos</h2>
-        <p id="switches">N/A</p>
+    <div id="dashboard-section">
+      <div class="cards">
+        <div class="card">
+          <h2>Switches Ativos</h2>
+          <p id="switches">N/A</p>
+        </div>
+        <div class="card">
+          <h2>Hosts Ativos</h2>
+          <p id="hosts">N/A</p>
+        </div>
       </div>
-      <div class="card">
-        <h2>Hosts Ativos</h2>
-        <p id="hosts">N/A</p>
+      <div id="chart-container">
+        <canvas id="trafficChart" height="100"></canvas>
       </div>
     </div>
 
-    <div id="chart-container">
-      <canvas id="trafficChart" height="100"></canvas>
+    <div id="block-section" class="hidden">
+      <h2>Bloquear Tráfego por Switch</h2>
+      <select id="switchSelect"></select>
+      <button onclick="blockTraffic()">Bloquear</button>
     </div>
   </div>
 
   <script>
+    function showSection(section) {
+      document.getElementById('dashboard-section').classList.toggle('hidden', section !== 'dashboard');
+      document.getElementById('block-section').classList.toggle('hidden', section !== 'block');
+    }
+
     async function fetchTrafficData() {
       const response = await fetch('/api/traffic');
       const data = await response.json();
@@ -91,16 +139,33 @@
       return data;
     }
 
+    async function fetchSwitches() {
+      const response = await fetch('/api/switches');
+      const data = await response.json();
+      const select = document.getElementById('switchSelect');
+      select.innerHTML = '';
+      data.switches.forEach(s => {
+        const option = document.createElement('option');
+        option.value = s;
+        option.text = `Switch ${s}`;
+        select.appendChild(option);
+      });
+    }
+
+    async function blockTraffic() {
+      const dpid = document.getElementById('switchSelect').value;
+      await fetch(`/block/${dpid}`, { method: 'POST' });
+      alert(`Comando de bloqueio enviado para o switch ${dpid}`);
+    }
+
     async function renderDashboard() {
       const traffic = await fetchTrafficData();
       const topology = await fetchTopologyData();
+      await fetchSwitches();
 
-      // Update cards
       document.getElementById('switches').textContent = topology.switches ?? 'N/A';
       document.getElementById('hosts').textContent = topology.hosts ?? 'N/A';
 
-
-      // Render chart
       const ctx = document.getElementById('trafficChart').getContext('2d');
       new Chart(ctx, {
         type: 'line',
