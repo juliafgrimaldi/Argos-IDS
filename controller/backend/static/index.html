@@ -383,7 +383,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          switch: switchId,
+          dpid: switchId,
           eth_src: srcMac,
           eth_dst: dstMac,
           in_port: inPort ? parseInt(inPort) : null
