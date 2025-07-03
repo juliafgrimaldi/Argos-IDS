@@ -49,7 +49,7 @@ class ControllerAPI(app_manager.RyuApp):
     def _load_models(self):
         self.logger.info("Loading bundled models from pickle...")
         def load_bundle(name):
-            with open("models/{}_bundle.pkl".format(name), "rb") as f:
+            with open("models/{}_model_bundle.pkl".format(name), "rb") as f:
                 return pickle.load(f)
 
         self.models['decision_tree'] = load_bundle('dt')
