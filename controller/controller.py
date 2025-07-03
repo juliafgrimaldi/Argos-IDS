@@ -19,7 +19,6 @@ class ControllerAPI(app_manager.RyuApp):
         self.api_url = "http://127.0.0.1:8080/stats/flow/"
         self.block_url = "http://127.0.0.1:8080/stats/flowentry/add"
         self.filename = "traffic_predict.csv"
-        self.monitor_thread = hub.spawn(self._monitor)
         self.numeric_columns = ['packets', 'bytes', 'duration_sec']
         self.categorical_columns = ['dpid', 'in_port', 'eth_src', 'eth_dst']
         self.models = {}
@@ -66,7 +65,9 @@ class ControllerAPI(app_manager.RyuApp):
 
     def _monitor(self):
         while True:
+            self.logger.info("Monitor thread active")
             dpids = self.get_active_dpids()
+            self.logger.info(f"DPIDs ativos: {dpids}")
             for dpid in dpids:
                 self.collect_and_store_stats(dpid)
             self.predict_traffic()
