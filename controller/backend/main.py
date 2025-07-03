@@ -14,7 +14,7 @@ CSV_FILE = 'traffic_predict.csv'
 
 @app.on_event("startup")
 async def startup_event():
-    await sio.connect("http://localhost:9000")  # Porta do servidor do Ryu
+    await sio.connect("http://127.0.0.1:9000")  # Porta do servidor do Ryu
 
 @app.get("/block/{dpid}/{src}/{dst}/{port}")
 async def block_flow(dpid: int, src: str, dst: str, port: int):

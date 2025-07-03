@@ -15,7 +15,7 @@ from ML.predict_random_forest import predict_random_forest
 
 sio = socketio.AsyncServer(async_mode='asgi')
 app_socket = socketio.ASGIApp(sio)
-
+ryu_instance = None
 class ControllerAPI(app_manager.RyuApp):
     _CONTEXTS = {}
 
@@ -28,6 +28,8 @@ class ControllerAPI(app_manager.RyuApp):
             self.numeric_columns = ['packets', 'bytes', 'duration_sec']
             self.categorical_columns = ['dpid', 'in_port', 'eth_src', 'eth_dst']
             self.models = {}
+            global ryu_intance
+            ryu_instance = self
             self.accuracies = {
                 "decision_tree": 0.97,
                 "knn": 0.97,
@@ -195,6 +197,5 @@ async def handle_block(sid, data):
     in_port = data["in_port"]
     
     # chama o método do Ryu
-    app_instance = ControllerAPI._get_instance()
-    if app_instance:
-        app_instance.block_traffic(dpid, eth_src, eth_dst, in_port)
+    if ryu_instance:
+        ryu_instance.block_traffic(dpid, eth_src, eth_dst, in_port)
