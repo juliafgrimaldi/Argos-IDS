@@ -79,15 +79,15 @@ class ControllerAPI(app_manager.RyuApp):
     def collect_and_store_stats(self, dpid):
         try:
             self.logger.info("Coletando stats do DPID {}".format(dpid))
-            response = requests.get("{}{}".format(self.api_url, dpid), timeout=3)
+            response = requests.get("{}{}".format(self.api_url, dpid), timeout=10)
             response.raise_for_status()
             flow_stats = response.json().get(str(dpid), [])
             rows = []
 
             for stat in flow_stats:
                 match = stat.get('match', {})
-                eth_src = match.get('eth_src', 'NULL')
-                eth_dst = match.get('eth_dst', 'NULL')
+                eth_src = match.get('dl_src', 'NULL')
+                eth_dst = match.get('dl_dst', 'NULL')
                 in_port = match.get('in_port', 'NULL')
                 packets = stat.get('packet_count', 0)
                 bytes_count = stat.get('byte_count', 0)
