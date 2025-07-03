@@ -5,6 +5,7 @@ def predict_svm(model, selector, encoder, imputer, scaler, filename, numeric_col
     df = pd.read_csv(filename)
     all_columns = ['time', 'dpid', 'in_port', 'eth_src', 'eth_dst', 'packets', 'bytes', 'duration_sec']
     df_full = df[all_columns]
+    print(df_full.dtypes)
 
     # Pré-processamento
     df_numeric = df_full[numeric_columns]

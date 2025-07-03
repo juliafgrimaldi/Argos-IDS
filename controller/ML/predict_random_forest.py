@@ -5,7 +5,7 @@ def predict_random_forest(model, selector, encoder, imputer, scaler, filename, n
     df = pd.read_csv(filename)
     all_columns = ['time', 'dpid', 'in_port', 'eth_src', 'eth_dst', 'packets', 'bytes', 'duration_sec']
     df_full = df[all_columns]
-
+    print(df_full.dtypes)
     # Pré-processamento
     df_numeric = df_full[numeric_columns]
     df_categorical = df_full[categorical_columns].astype(str)
