@@ -38,10 +38,28 @@
       border-bottom: 1px solid #333;
     }
 
-    header h1 {
+    /* Container do título e subtítulo */
+    #title-container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      margin-right: 15px;
+    }
+
+    #title-container h1 {
       font-size: 20px;
       margin: 0;
       color: #eee;
+      user-select: none;
+      line-height: 1;
+    }
+
+    #title-container #subtitle {
+      font-size: 12px;
+      font-weight: 300;
+      color: #aaa;
+      margin-top: 2px;
+      font-style: italic;
       user-select: none;
     }
 
@@ -247,7 +265,10 @@
 </head>
 <body>
   <header>
-    <h1>ARGOS IDS</h1>
+    <div id="title-container">
+      <h1>ARGOS IDS</h1>
+      <span id="subtitle">Your network security monitoring platform</span>
+    </div>
     <button id="menu-toggle" aria-label="Toggle menu">☰</button>
   </header>
 
@@ -370,91 +391,82 @@
       } catch {}
     }
 
-    async function blockTraffic() {
-      const dpid = parseInt(document.getElementById('switchSelect').value);
-      const eth_src = document.getElementById('srcSelect').value;
-      const eth_dst = document.getElementById('dstSelect').value;
-      const in_port = parseInt(document.getElementById('inPort').value);
+    function blockTraffic() {
+      const switchId = document.getElementById('switchSelect').value;
+      const srcMac = document.getElementById('srcSelect').value;
+      const dstMac = document.getElementById('dstSelect').value;
+      const inPort = document.getElementById('inPort').value;
 
-      if (!dpid || !eth_src || !eth_dst || !in_port) {
-        alert('Por favor, preencha todos os campos corretamente.');
-        return;
-      }
-
-      const payload = { dpid, eth_src, eth_dst, in_port };
-      try {
-        const response = await fetch('/block', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
+      fetch('/api/block', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          switch: switchId,
+          eth_src: srcMac,
+          eth_dst: dstMac,
+          in_port: inPort ? parseInt(inPort) : null
+        })
+      }).then(resp => {
+        if(resp.ok) {
           alert('Tráfego bloqueado com sucesso!');
         } else {
-          alert('Erro ao tentar bloquear tráfego.');
+          alert('Falha ao bloquear tráfego.');
         }
-      } catch (err) {
-        alert('Erro na comunicação com o servidor.');
-      }
+      }).catch(() => alert('Erro na requisição.'));
     }
 
-    async function renderDashboard() {
-      const traffic = await fetchTrafficData();
-      const topology = await fetchTopologyData();
-      await fetchSwitches();
-      await fetchHosts();
+    let trafficChart;
 
-      document.getElementById('switches').textContent = topology.switches ?? 'N/A';
-      document.getElementById('hosts').textContent = topology.hosts ?? 'N/A';
+    async function updateDashboard() {
+      const trafficData = await fetchTrafficData();
+      const topoData = await fetchTopologyData();
 
-      const ctx = document.getElementById('trafficChart').getContext('2d');
+      document.getElementById('switches').textContent = topoData.switches;
+      document.getElementById('hosts').textContent = topoData.hosts;
 
-      // Destrói o gráfico anterior se existir para evitar sobreposição
-      if (window.trafficChartInstance) {
-        window.trafficChartInstance.destroy();
-      }
-
-      window.trafficChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: traffic.labels,
-          datasets: traffic.datasets
-        },
-        options: {
-          maintainAspectRatio: false,
-          responsive: true,
-          plugins: {
-            title: {
-              display: true,
-              text: 'Tráfego por Switch ao Longo do Tempo',
-              color: '#fff',
-              font: { size: 18 }
+      if (!trafficChart) {
+        const ctx = document.getElementById('trafficChart').getContext('2d');
+        trafficChart = new Chart(ctx, {
+          type: 'line',
+          data: trafficData,
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  color: '#ccc'
+                }
+              },
+              x: {
+                ticks: {
+                  color: '#ccc'
+                }
+              }
             },
-            legend: {
-              labels: {
-                color: '#fff',
-                font: { size: 14 }
+            plugins: {
+              legend: {
+                labels: { color: '#ccc' }
               }
             }
-          },
-          scales: {
-            x: {
-              ticks: { color: '#fff' },
-              grid: { color: '#333' }
-            },
-            y: {
-              ticks: { color: '#fff' },
-              grid: { color: '#333' }
-            }
           }
-        }
-      });
+        });
+      } else {
+        trafficChart.data = trafficData;
+        trafficChart.update();
+      }
     }
 
-    // Inicializa mostrando o dashboard
-    showSection('dashboard');
-    renderDashboard();
+    async function init() {
+      await fetchSwitches();
+      await fetchHosts();
+      await updateDashboard();
+
+      // Atualiza a cada 10s
+      setInterval(updateDashboard, 10000);
+    }
+
+    init();
   </script>
 </body>
 </html>
