@@ -9,6 +9,9 @@ def predict_knn(model, selector, encoder, imputer, scaler, filename, numeric_col
     # Pré-processamento
     df_numeric = df_full[numeric_columns]
     df_categorical = df_full[categorical_columns].astype(str)
+    print("Numeric columns:", numeric_columns)
+    print("Categorical columns:", categorical_columns)
+    print("Dtypes in df_full:\n", df_full.dtypes)
 
     X_num = imputer.transform(df_numeric)
     X_cat = encoder.transform(df_categorical)

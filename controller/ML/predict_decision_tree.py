@@ -5,10 +5,14 @@ def predict_decision_tree(model, selector, encoder, imputer, scaler, filename, n
     df = pd.read_csv(filename)
     all_columns = ['time', 'dpid', 'in_port', 'eth_src', 'eth_dst', 'packets', 'bytes', 'duration_sec']
     df_full = df[all_columns]
-    print(df_full.dtypes)
+
     # Pré-processamento
     df_numeric = df_full[numeric_columns]
     df_categorical = df_full[categorical_columns].astype(str)
+
+    print("Numeric columns:", numeric_columns)
+    print("Categorical columns:", categorical_columns)
+    print("Dtypes in df_full:\n", df_full.dtypes)
 
     X_num = imputer.transform(df_numeric)
     X_cat = encoder.transform(df_categorical)
