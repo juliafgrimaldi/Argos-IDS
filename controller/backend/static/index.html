@@ -20,6 +20,10 @@
       padding: 20px;
       border-right: 1px solid #333;
       height: 100vh;
+      position: fixed;     /* Fixo na tela */
+      top: 0;
+      left: 0;
+      z-index: 1000;       /* Acima do conteúdo */
       transition: transform 0.3s ease;
     }
 
@@ -28,10 +32,10 @@
     }
 
     #menu-toggle {
-      position: absolute;
+      position: fixed;     /* Fixo no topo da tela */
       top: 20px;
       left: 20px;
-      z-index: 100;
+      z-index: 1100;       /* Acima do aside */
       background-color: #333;
       color: #fff;
       border: none;
@@ -64,12 +68,12 @@
     .container {
       flex: 1;
       padding: 20px;
-      margin-left: 220px;
+      margin-left: 220px;   /* Espaço para o menu */
       transition: margin-left 0.3s ease;
     }
 
     .container.full {
-      margin-left: 0;
+      margin-left: 0;       /* Quando menu escondido */
     }
 
     .cards {
