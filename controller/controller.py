@@ -40,13 +40,13 @@ class ControllerAPI(app_manager.RyuApp):
             response.raise_for_status()
             return response.json()  # Lista de dpids
         except Exception as e:
-            self.logger.error(f"Erro ao buscar switches ativos: {e}")
+            self.logger.error("Erro ao buscar switches ativos: {}".format(e))
         return []
 
     def _load_models(self):
         self.logger.info("Loading bundled models from pickle...")
         def load_bundle(name):
-            with open(f"models/{name}_bundle.pkl", "rb") as f:
+            with open("models/{}_bundle.pkl".format(name), "rb") as f:
                 return pickle.load(f)
 
         self.models['decision_tree'] = load_bundle('decision_tree')
@@ -103,7 +103,7 @@ class ControllerAPI(app_manager.RyuApp):
                 pd.DataFrame(rows).to_csv(self.filename, mode='a', index=False, header=not os.path.exists(self.filename))
 
         except Exception as e:
-            self.logger.error(f"Failed to collect stats for dpid {dpid}: {e}")
+            self.logger.error("Failed to collect stats for dpid {}: {}".format(dpid, e))
 
     def predict_traffic(self):
         try:
@@ -135,10 +135,10 @@ class ControllerAPI(app_manager.RyuApp):
                 if pred == 1:
                     row = df.iloc[i]
                     self.block_traffic(int(row['dpid']), row['eth_src'], row['eth_dst'], int(row['in_port']))
-                    self.logger.warning(f"Blocked malicious flow: {row.to_dict()}")
+                    self.logger.warning("Blocked malicious flow: {}".format(row.to_dict()))
 
         except Exception as e:
-            self.logger.error(f"Prediction error: {e}")
+            self.logger.error("Prediction error: {}".format(e))
 
     def weighted_vote(self, predictions):
         votes = {}
@@ -163,8 +163,8 @@ class ControllerAPI(app_manager.RyuApp):
         try:
             response = requests.post(self.block_url, json=flow_rule)
             if response.status_code == 200:
-                self.logger.info(f"Successfully blocked traffic from {eth_src} to {eth_dst}")
+                self.logger.info("Successfully blocked traffic from {} to {}".format(eth_src, eth_dst))
             else:
-                self.logger.error(f"Failed to block traffic: {response.status_code} {response.text}")
+                self.logger.error("Failed to block traffic: {} {}".format(response.status_code, response.text))
         except Exception as e:
-            self.logger.error(f"Error sending block rule: {e}")
+            self.logger.error("Error sending block rule: {}".format(e))
