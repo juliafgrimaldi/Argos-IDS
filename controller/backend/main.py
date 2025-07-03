@@ -7,6 +7,7 @@ import os
 import datetime
 import socket
 import requests
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -20,6 +21,12 @@ async def index():
     with open("static/index.html", "r") as f:
         return f.read()
 
+class BlockRequest(BaseModel):
+    dpid: int
+    eth_src: str
+    eth_dst: str
+    in_port: int
+
 def block_traffic_rest(dpid: int, eth_src: str, eth_dst: str, in_port: int):
     flow_rule = {
         "dpid": dpid,
@@ -29,19 +36,26 @@ def block_traffic_rest(dpid: int, eth_src: str, eth_dst: str, in_port: int):
             "eth_src": eth_src,
             "eth_dst": eth_dst
         },
-        "actions": []
+        "actions": []  # Nenhuma ação = DROP
     }
-    response = requests.post(RYU_REST_URL, json=flow_rule)
-    if response.status_code == 200:
-        return {"status": "success", "message": "Traffic blocked"}
-    else:
-        return {"status": "error", "message": response.text}
 
-@app.get("/block/{dpid}/{src}/{dst}/{port}")
-def block_flow(dpid: int, src: str, dst: str, port: int):
-    result = block_traffic_rest(dpid, src, dst, port)
-    return result
+    try:
+        response = requests.post(RYU_REST_URL, json=flow_rule)
+        if response.status_code == 200:
+            return {"status": "success", "message": "Tráfego bloqueado com sucesso."}
+        else:
+            return {"status": "error", "message": f"Erro do Ryu: {response.text}"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
+@app.post("/block")
+def block_flow(request: BlockRequest):
+    return block_traffic_rest(
+        dpid=request.dpid,
+        eth_src=request.eth_src,
+        eth_dst=request.eth_dst,
+        in_port=request.in_port
+    )
 
 @app.get("/api/traffic")
 def get_traffic():
