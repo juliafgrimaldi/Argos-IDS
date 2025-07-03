@@ -16,24 +16,27 @@ class ControllerAPI(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(ControllerAPI, self).__init__(*args, **kwargs)
-        self.api_url = "http://127.0.0.1:8080/stats/flow/"
-        self.block_url = "http://127.0.0.1:8080/stats/flowentry/add"
-        self.filename = "traffic_predict.csv"
-        self.numeric_columns = ['packets', 'bytes', 'duration_sec']
-        self.categorical_columns = ['dpid', 'in_port', 'eth_src', 'eth_dst']
-        self.models = {}
-        self.accuracies = {
-            "decision_tree": 0.97,
-            "knn": 0.97,
-            "naive_bayes": 0.70,
-            "random_forest": 0.97,
-            "svm": 0.87,
-        }
+        try:
+            self.api_url = "http://127.0.0.1:8080/stats/flow/"
+            self.block_url = "http://127.0.0.1:8080/stats/flowentry/add"
+            self.filename = "traffic_predict.csv"
+            self.numeric_columns = ['packets', 'bytes', 'duration_sec']
+            self.categorical_columns = ['dpid', 'in_port', 'eth_src', 'eth_dst']
+            self.models = {}
+            self.accuracies = {
+                "decision_tree": 0.97,
+                "knn": 0.97,
+                "naive_bayes": 0.70,
+                "random_forest": 0.97,
+                "svm": 0.87,
+            }
 
-        self._load_models()
-        self._initialize_csv()
-        self.monitor_thread = hub.spawn(self._monitor)
-
+            self._load_models()
+            self._initialize_csv()
+            self.monitor_thread = hub.spawn(self._monitor)
+            self.logger.info("ControllerAPI inicializou com sucesso")
+        except Exception as e:
+            self.logger.error("Erro no __init__: {}".format(e))
     def get_active_dpids(self):
         try:
             response = requests.get("http://127.0.0.1:8080/stats/switches")
