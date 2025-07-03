@@ -6,7 +6,7 @@ import os
 
 app = FastAPI()
 
-CSV_FILE = 'traffic_stats.csv'
+CSV_FILE = 'traffic_predict.csv'
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
