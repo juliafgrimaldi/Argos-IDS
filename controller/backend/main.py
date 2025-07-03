@@ -6,25 +6,12 @@ import pandas as pd
 import os
 import datetime
 import socket
+import requests
 
 app = FastAPI()
-sio = socketio.AsyncClient()
 
+RYU_REST_URL = "http://127.0.0.1:8080/stats/flowentry/add"
 CSV_FILE = 'traffic_predict.csv'
-
-@app.on_event("startup")
-async def startup_event():
-    await sio.connect("http://127.0.0.1:9000")  # Porta do servidor do Ryu
-
-@app.get("/block/{dpid}/{src}/{dst}/{port}")
-async def block_flow(dpid: int, src: str, dst: str, port: int):
-    await sio.emit("block_flow", {
-        "dpid": dpid,
-        "eth_src": src,
-        "eth_dst": dst,
-        "in_port": port
-    })
-    return {"status": "sent"}
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -32,6 +19,29 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def index():
     with open("static/index.html", "r") as f:
         return f.read()
+
+def block_traffic_rest(dpid: int, eth_src: str, eth_dst: str, in_port: int):
+    flow_rule = {
+        "dpid": dpid,
+        "priority": 100,
+        "match": {
+            "in_port": in_port,
+            "eth_src": eth_src,
+            "eth_dst": eth_dst
+        },
+        "actions": []
+    }
+    response = requests.post(RYU_REST_URL, json=flow_rule)
+    if response.status_code == 200:
+        return {"status": "success", "message": "Traffic blocked"}
+    else:
+        return {"status": "error", "message": response.text}
+
+@app.get("/block/{dpid}/{src}/{dst}/{port}")
+def block_flow(dpid: int, src: str, dst: str, port: int):
+    result = block_traffic_rest(dpid, src, dst, port)
+    return result
+
 
 @app.get("/api/traffic")
 def get_traffic():

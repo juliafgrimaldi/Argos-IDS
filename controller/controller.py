@@ -28,7 +28,7 @@ class ControllerAPI(app_manager.RyuApp):
             self.numeric_columns = ['packets', 'bytes', 'duration_sec']
             self.categorical_columns = ['dpid', 'in_port', 'eth_src', 'eth_dst']
             self.models = {}
-            global ryu_intance
+            global ryu_instance
             ryu_instance = self
             self.accuracies = {
                 "decision_tree": 0.97,
@@ -183,19 +183,3 @@ class ControllerAPI(app_manager.RyuApp):
         except Exception as e:
             self.logger.error("Error sending block rule: {}".format(e))
 
-
-@sio.event
-async def connect(sid, environ):
-    print("Conexão recebida:", sid)
-
-@sio.on("block_flow")
-async def handle_block(sid, data):
-    print("Comando recebido:", data)
-    dpid = data["dpid"]
-    eth_src = data["eth_src"]
-    eth_dst = data["eth_dst"]
-    in_port = data["in_port"]
-    
-    # chama o método do Ryu
-    if ryu_instance:
-        ryu_instance.block_traffic(dpid, eth_src, eth_dst, in_port)
