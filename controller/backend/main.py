@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import pandas as pd
 import os
+import datetime
 
 app = FastAPI()
 
@@ -23,11 +24,34 @@ def get_traffic():
 
     df = pd.read_csv(CSV_FILE)
 
-    # Agrega bytes totais por switch (dpid)
-    traffic = df.groupby('dpid')['bytes'].sum().reset_index()
-    # Converte para lista de dicts para JSON
-    data = traffic.to_dict(orient='records')
-    return {"traffic": data}
+    if 'time' not in df.columns or 'dpid' not in df.columns or 'bytes' not in df.columns:
+        return {"error": "CSV deve conter as colunas: time, dpid, bytes"}
+
+    # Converte o timestamp UNIX para datetime legível
+    df['timestamp'] = df['time'].apply(lambda ts: datetime.datetime.fromtimestamp(float(ts)).strftime('%H:%M:%S'))
+
+    grouped = df.groupby(['dpid', 'timestamp'])['bytes'].sum().reset_index()
+
+    # Eixo X: todos os tempos únicos ordenados
+    timestamps = sorted(grouped['timestamp'].unique().tolist())
+
+    datasets = []
+    for dpid in grouped['dpid'].unique():
+        switch_data = grouped[grouped['dpid'] == dpid]
+        traffic_per_time = switch_data.set_index('timestamp')['bytes'].reindex(timestamps, fill_value=0)
+
+        datasets.append({
+            "label": f"Switch {dpid}",
+            "data": traffic_per_time.tolist(),
+            "fill": False,
+            "borderColor": f"#{hash(str(dpid)) & 0xFFFFFF:06x}",
+            "tension": 0.1
+        })
+
+    return {
+        "labels": timestamps,
+        "datasets": datasets
+    }
 
 @app.get("/api/overview")
 def get_network_overview():
