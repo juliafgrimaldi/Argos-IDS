@@ -7,12 +7,14 @@ import socketio
 import asyncio
 from ryu.base import app_manager
 from ryu.lib import hub
+from sklearn import set_config
 from ML.predict_knn import predict_knn
 from ML.predict_svm import predict_svm
 from ML.predict_decision_tree import predict_decision_tree
 from ML.predict_naive_bayes import predict_naive_bayes
 from ML.predict_random_forest import predict_random_forest
 
+set_config(transform_output="pandas")
 sio = socketio.AsyncServer(async_mode='asgi')
 app_socket = socketio.ASGIApp(sio)
 ryu_instance = None
