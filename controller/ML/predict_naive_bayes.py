@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from scipy.sparse import issparse
 
 def predict_naive_bayes(model, selector, encoder, imputer, scaler, filename, numeric_columns, categorical_columns):
     df = pd.read_csv(filename)
@@ -7,10 +8,8 @@ def predict_naive_bayes(model, selector, encoder, imputer, scaler, filename, num
     if df.empty:
         raise ValueError("O arquivo de predição está vazio.")
 
-    # Substituir inf/-inf por NaN
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
 
-    # Garantir que TODAS as colunas do treino existam
     for col in numeric_columns:
         if col not in df.columns:
             df[col] = 0
@@ -18,7 +17,6 @@ def predict_naive_bayes(model, selector, encoder, imputer, scaler, filename, num
         if col not in df.columns:
             df[col] = "unknown"
 
-    # Separar numéricas e categóricas
     df_numeric = df[numeric_columns]
     df_categorical = df[categorical_columns].astype(str)
 
@@ -26,22 +24,22 @@ def predict_naive_bayes(model, selector, encoder, imputer, scaler, filename, num
     print("Categorical columns:", categorical_columns)
     print("Dtypes in df:\n", df.dtypes)
 
-    # 1. Imputar valores ausentes numéricos
     X_num = imputer.transform(df_numeric)
 
-    # 2. Codificar categóricas
     X_cat = encoder.transform(df_categorical)
 
-    # 3. Concatenar numéricas + categóricas
+    if issparse(X_cat):
+        X_cat = X_cat.toarray()
+
     X = np.concatenate([X_num, X_cat], axis=1)
 
-    # 4. Escalar (antes da seleção!)
     X_scaled = scaler.transform(X)
 
-    # 5. Seleção de atributos
     X_selected = selector.transform(X_scaled)
 
-    # 6. Predição
+    if hasattr(model, "theta_"):  
+        X_selected = np.asarray(X_selected)
+
     predictions = model.predict(X_selected)
 
     df["prediction"] = predictions
