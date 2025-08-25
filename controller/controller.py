@@ -134,15 +134,15 @@ class ControllerAPI(app_manager.RyuApp):
                 scaler = bundle['scaler']
 
                 if name == 'knn':
-                    pred, _ = predict_knn(model, selector, encoder, imputer, scaler, self.filename, self.numeric_columns, self.categorical_columns)
+                    pred, _ = predict_knn(bundle, self.filename)
                 elif name == 'svm':
-                    pred, _ = predict_svm(model, selector, encoder, imputer, scaler, self.filename, self.numeric_columns, self.categorical_columns)
+                    pred, _ = predict_svm(bundle, self.filename)
                 elif name == 'decision_tree':
-                    pred, _ = predict_decision_tree(model, selector, encoder, imputer, scaler, self.filename, self.numeric_columns, self.categorical_columns)
+                    pred, _ = predict_decision_tree(bundle, self.filename)
                 elif name == 'naive_bayes':
-                    pred, _ = predict_naive_bayes(model, selector, encoder, imputer, scaler, self.filename, self.numeric_columns, self.categorical_columns)
+                    pred, _ = predict_naive_bayes(bundle, self.filename)
                 elif name == 'random_forest':
-                    pred, _ = predict_random_forest(model, selector, encoder, imputer, scaler, self.filename, self.numeric_columns, self.categorical_columns)
+                    pred, _ = predict_random_forest(bundle, self.filename)
 
                 predictions[name] = pred
 

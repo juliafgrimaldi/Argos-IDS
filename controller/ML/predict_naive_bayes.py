@@ -1,12 +1,19 @@
 import pandas as pd
 import numpy as np
-from scipy.sparse import issparse
 
-def predict_naive_bayes(model, selector, encoder, imputer, scaler, filename, numeric_columns, categorical_columns):
+def predict_naive_bayes(model_bundle, filename):
     df = pd.read_csv(filename)
 
     if df.empty:
         raise ValueError("O arquivo de predição está vazio.")
+
+    model = model_bundle['model']
+    selector = model_bundle['selector']
+    encoder = model_bundle['encoder']
+    imputer = model_bundle['imputer']
+    scaler = model_bundle['scaler']
+    numeric_columns = model_bundle['numeric_columns']
+    categorical_columns = model_bundle['categorical_columns']
 
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
 
@@ -20,25 +27,16 @@ def predict_naive_bayes(model, selector, encoder, imputer, scaler, filename, num
     df_numeric = df[numeric_columns]
     df_categorical = df[categorical_columns].astype(str)
 
-    print("Numeric columns:", numeric_columns)
-    print("Categorical columns:", categorical_columns)
-    print("Dtypes in df:\n", df.dtypes)
 
     X_num = imputer.transform(df_numeric)
+    X_num_scaled = scaler.transform(X_num)
 
     X_cat = encoder.transform(df_categorical)
+    X_cat_df = pd.DataFrame(X_cat, columns=encoder.get_feature_names_out(categorical_columns))
 
-    if issparse(X_cat):
-        X_cat = X_cat.toarray()
+    X_full = pd.concat([pd.DataFrame(X_num_scaled, columns=numeric_columns), X_cat_df], axis=1)
 
-    X = np.concatenate([X_num, X_cat], axis=1)
-
-    X_scaled = scaler.transform(X)
-
-    X_selected = selector.transform(X_scaled)
-
-    if hasattr(model, "theta_"):  
-        X_selected = np.asarray(X_selected)
+    X_selected = selector.transform(X_full)
 
     predictions = model.predict(X_selected)
 
