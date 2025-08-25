@@ -24,14 +24,10 @@ def predict_knn(model_bundle, filename):
         if col not in df.columns:
             df[col] = "unknown"
 
-    df_numeric = df[numeric_columns].apply(pd.to_numeric, errors="coerce")
-    df_categorical = df[categorical_columns].astype(str)
-
-
-    X_num = imputer.transform(df_numeric)
+    X_num = imputer.transform(df[numeric_columns])
     X_num_scaled = scaler.transform(X_num)
 
-    X_cat = encoder.transform(df_categorical)
+    X_cat = encoder.transform(df[categorical_columns].astype(str))
     X_cat_df = pd.DataFrame(X_cat, columns=encoder.get_feature_names_out(categorical_columns))
 
     X_full = pd.concat([pd.DataFrame(X_num_scaled, columns=numeric_columns), X_cat_df], axis=1)
