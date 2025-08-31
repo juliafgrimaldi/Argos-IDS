@@ -127,11 +127,6 @@ class ControllerAPI(app_manager.RyuApp):
             predictions = {}
 
             for name, bundle in self.models.items():
-                model = bundle['model']
-                selector = bundle['selector']
-                encoder = bundle['encoder']
-                imputer = bundle['imputer']
-                scaler = bundle['scaler']
 
                 if name == 'knn':
                     pred, _ = predict_knn(bundle, self.filename)
@@ -158,13 +153,25 @@ class ControllerAPI(app_manager.RyuApp):
 
     def weighted_vote(self, predictions):
         votes = {}
+        weights = {}
         for model_name, pred_list in predictions.items():
             weight = self.accuracies.get(model_name, 1.0)
             for i, pred in enumerate(pred_list):
-                votes.setdefault(i, 0)
+                votes.setdefault(i, 0.0)
+                weights.setdefault(i, 0.0)
                 votes[i] += pred * weight
-        return [1 if v > 2.5 else 0 for v in votes.values()]
+                weights[i] += weight
 
+        final_predictions = []
+        for i in range(len(votes)):
+            if weights[i] > 0:
+                avg_vote = votes[i] / weights[i]
+            else:
+                avg_vote = 0
+            final_predictions.append(1 if avg_vote > 0.5 else 0)
+
+        return final_predictions
+    
     def block_traffic(self, dpid, eth_src, eth_dst, in_port):
         flow_rule = {
             "dpid": dpid,
