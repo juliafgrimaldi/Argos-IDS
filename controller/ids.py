@@ -4,7 +4,7 @@ import time
 import requests
 import pandas as pd
 import socketio
-import asyncio
+import sqlite3
 from ryu.base import app_manager
 from ryu.lib import hub
 from sklearn import set_config
@@ -15,8 +15,6 @@ from ML.predict_naive_bayes import predict_naive_bayes
 from ML.predict_random_forest import predict_random_forest
 
 set_config(transform_output="pandas")
-sio = socketio.AsyncServer(async_mode='asgi')
-app_socket = socketio.ASGIApp(sio)
 ryu_instance = None
 class ControllerAPI(app_manager.RyuApp):
     _CONTEXTS = {}
@@ -42,10 +40,58 @@ class ControllerAPI(app_manager.RyuApp):
 
             self._load_models()
             self._initialize_csv()
+            self._initialize_db()
             self.monitor_thread = hub.spawn(self._monitor)
             self.logger.info("ControllerAPI inicializou com sucesso")
         except Exception as e:
             self.logger.error("Erro no __init__: {}".format(e))
+
+
+    def _initialize_db(self):
+        conn = sqlite3.connect("traffic.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS flows (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            time REAL,
+            dpid INTEGER,
+            in_port INTEGER,
+            eth_src TEXT,
+            eth_dst TEXT,
+            packets INTEGER,
+            bytes INTEGER,
+            duration_sec INTEGER,
+            label BOOLEAN
+        )
+        """)
+        conn.commit()
+        conn.close()
+
+
+    def save_flow(self, row, label: bool):
+        try:
+            conn = sqlite3.connect("traffic.db")
+            cursor = conn.cursor()
+            cursor.execute("""
+            INSERT INTO flows (
+                time, dpid, in_port, eth_src, eth_dst, packets, bytes, duration_sec, label
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                row.get("time", time.time()),
+                int(row["dpid"]),
+                int(row["in_port"]),
+                row["eth_src"],
+                row["eth_dst"],
+                int(row.get("packets", 0)),
+                int(row.get("bytes", 0)),
+                int(row.get("duration_sec", 0)),
+                1 if label else 0
+            ))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            self.logger.error("Erro ao salvar fluxo no banco: {}".format(e))
+
 
     def get_active_dpids(self):
         try:
@@ -143,10 +189,13 @@ class ControllerAPI(app_manager.RyuApp):
 
             final_predictions = self.weighted_vote(predictions)
             for i, pred in enumerate(final_predictions):
+                row = df.iloc[i]
+                self.save_flow(row, bool(pred))
                 if pred == 1:
-                    row = df.iloc[i]
                     self.block_traffic(int(row['dpid']), row['eth_src'], row['eth_dst'], int(row['in_port']))
                     self.logger.warning("Blocked malicious flow: {}".format(row.to_dict()))
+                else:
+                    self.logger.info("Benign flow: {}".format(row.to_dict()))
 
         except Exception as e:
             self.logger.error("Prediction error: {}".format(e))
