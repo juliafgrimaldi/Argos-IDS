@@ -521,10 +521,10 @@
       // Atualiza cards
       document.getElementById('switches').textContent = topoData.switches;
       document.getElementById('hosts').textContent = topoData.hosts;
-      document.getElementById('attacks').textContent = topoData.attacks_detected;
-      document.getElementById('suspiciousTraffic').textContent = topoData.suspiciousTraffic ?? 'N/A';
-      document.getElementById('legitTraffic').textContent = topoData.legitTraffic_pct;
-      document.getElementById('rules').textContent = topoData.rules_active;
+      document.getElementById('attacks').textContent = stats.attacks_detected ?? 'N/A';
+      document.getElementById('suspiciousTraffic').textContent = stats.suspicious_traffic ?? 'N/A';
+      document.getElementById('legitTraffic').textContent = stats.legitimate_traffic_pct ?? 'N/A';
+      document.getElementById('rules').textContent = stats.rules_active ?? 'N/A';
 
       // Atualiza gráfico
       if (!trafficChart) {
