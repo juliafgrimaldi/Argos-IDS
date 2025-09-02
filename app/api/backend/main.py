@@ -13,7 +13,7 @@ app = FastAPI()
 RYU_REST_URL = "http://127.0.0.1:8080"
 CSV_FILE = 'traffic_predict.csv'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  
-DB_PATH = os.path.join(BASE_DIR, "../../controller/traffic.db")
+DB_PATH = os.path.join(BASE_DIR, "../../../controller/traffic.db")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
