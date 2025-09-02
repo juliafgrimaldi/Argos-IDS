@@ -26,7 +26,7 @@
     header {
       display: flex;
       align-items: center;
-      justify-content: center; /* centraliza título */
+      justify-content: center;
       background-color: #1f1f1f;
       padding: 10px 20px;
       height: 50px;
@@ -65,7 +65,7 @@
     /* Sidebar fixo, abaixo do header */
     aside {
       position: fixed;
-      top: 50px; /* abaixo do header */
+      top: 50px;
       left: 0;
       width: 220px;
       height: calc(100vh - 50px);
@@ -111,8 +111,8 @@
 
     /* Conteúdo principal */
     .container {
-      margin-top: 50px; /* para descer abaixo do header */
-      margin-left: 220px; /* espaço para sidebar */
+      margin-top: 50px;
+      margin-left: 220px;
       padding: 20px;
       height: calc(100vh - 50px);
       overflow-y: auto;
@@ -126,47 +126,114 @@
       margin-left: 0;
     }
 
-    /* Cards flexíveis e centrados */
-    .cards {
-      display: flex;
-      gap: 20px;
-      margin-bottom: 30px;
+    /* Overview Cards */
+    .overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
       width: 100%;
-      max-width: 900px;
-      justify-content: center;
+      max-width: 1000px;
     }
 
-    .card {
-      flex: 1 1 200px;
-      background-color: #1e1e1e;
-      border-radius: 10px;
+    .overview .card {
+      background: #1e1e1e;
+      border-radius: 8px;
       padding: 20px;
-      box-shadow: 0 0 5px rgba(255,255,255,0.1);
       text-align: center;
-      user-select: none;
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
     }
 
-    .card h2 {
+    .overview .card h3 {
+      font-size: 14px;
+      color: #bbb;
       margin: 0;
-      font-size: 18px;
-      color: #ccc;
+      font-weight: 500;
+      text-transform: uppercase;
     }
 
-    .card p {
+    .overview .card p {
       font-size: 28px;
-      margin: 10px 0 0;
-      color: #fff;
+      margin: 10px 0;
+      font-weight: 600;
     }
 
-    /* Container do gráfico, maior e centralizado */
+    .overview .card .green { color: #4caf50; }
+    .overview .card .red { color: #e53935; }
+    .overview .card .orange { color: #ff9800; }
+
+    .status {
+      font-size: 12px;
+      display: block;
+      margin-top: 5px;
+    }
+
+    /* Alerts Section */
+    .alerts {
+      background: #1e1e1e;
+      padding: 15px;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 1000px;
+      margin-top: 20px;
+      position: relative;
+      box-shadow: 0 0 5px rgba(255,255,255,0.1);
+    }
+
+    .alerts h3 {
+      margin: 0;
+      display: inline-block;
+      font-size: 16px;
+    }
+
+    .alerts .clear {
+      position: absolute;
+      right: 15px;
+      top: 15px;
+      background: #333;
+      border: none;
+      padding: 5px 10px;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .alerts ul {
+      list-style: none;
+      margin: 10px 0 0;
+      padding: 0;
+    }
+
+    .alerts li {
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 5px;
+      background: #2a2a2a;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .alerts .alert.red { border-left: 4px solid #e53935; }
+    .alerts .alert.orange { border-left: 4px solid #ff9800; }
+
+    .alerts .time {
+      font-size: 12px;
+      color: #aaa;
+      margin-left: 10px;
+    }
+
+    /* Container do gráfico */
     #chart-container {
       background-color: #1e1e1e;
       padding: 20px;
       border-radius: 10px;
       width: 100%;
-      max-width: 900px;
-      height: 400px; /* altura maior */
+      max-width: 1000px;
+      height: 400px;
       box-sizing: border-box;
+      margin-top: 20px;
     }
 
     #trafficChart {
@@ -178,6 +245,7 @@
     #block-section {
       width: 100%;
       max-width: 500px;
+      margin-top: 20px;
     }
 
     .hidden { display: none; }
@@ -229,6 +297,26 @@
       border-radius: 3px;
     }
 
+    @media (max-width: 800px) {
+      .overview {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      }
+
+      .alerts {
+        font-size: 13px;
+      }
+
+      .alerts li {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .alerts .time {
+        margin-left: 0;
+        margin-top: 4px;
+      }
+    }
+
     @media (max-width: 700px) {
       aside {
         width: 180px;
@@ -236,22 +324,14 @@
       .container {
         margin-left: 180px;
       }
-      .cards {
-        flex-direction: column;
-        max-width: 100%;
-      }
       #chart-container {
-        max-width: 100%;
         height: 300px;
       }
     }
   </style>
 </head>
 <body>
-  <header>
-    ARGOS IDS
-  </header>
-
+  <header>ARGOS IDS</header>
   <button id="menu-toggle" aria-label="Toggle menu">☰</button>
 
   <aside id="sidebar">
@@ -264,21 +344,54 @@
 
   <div class="container" id="main-container">
     <div id="dashboard-section">
-      <div class="cards">
+      <!-- Overview Cards -->
+      <div class="overview">
         <div class="card">
-          <h2>Switches Ativos</h2>
+          <h3>SWITCHES ATIVOS</h3>
           <p id="switches">N/A</p>
+          <span class="status green">+0 hoje</span>
         </div>
         <div class="card">
-          <h2>Hosts Ativos</h2>
+          <h3>HOSTS ATIVOS</h3>
           <p id="hosts">N/A</p>
+          <span class="status green">+0 hoje</span>
+        </div>
+        <div class="card">
+          <h3>ATAQUES DETECTADOS</h3>
+          <p id="attacks">N/A</p>
+          <span class="status red">+0 últimas 2h</span>
+        </div>
+        <div class="card">
+          <h3>TRÁFEGO SUSPEITO</h3>
+          <p id="suspiciousTraffic" class="orange">N/A</p>
+          <span class="status orange">+0% hoje</span>
+        </div>
+        <div class="card">
+          <h3>TRÁFEGO LEGÍTIMO</h3>
+          <p id="legitTraffic" class="green">N/A</p>
+          <span class="status normal">Normal</span>
+        </div>
+        <div class="card">
+          <h3>REGRAS ATIVAS</h3>
+          <p id="rules">N/A</p>
+          <span class="status green">0 atualizadas</span>
         </div>
       </div>
+
+      <!-- Gráfico -->
       <div id="chart-container">
         <canvas id="trafficChart"></canvas>
       </div>
+
+      <!-- Alertas -->
+      <div class="alerts">
+        <h3>🎉 Alertas Recentes</h3>
+        <button class="clear" onclick="clearAlerts()">LIMPAR</button>
+        <ul id="alerts-list"></ul>
+      </div>
     </div>
 
+    <!-- Seção de bloqueio de tráfego -->
     <div id="block-section" class="hidden">
       <h2>Bloquear Tráfego</h2>
 
@@ -335,7 +448,7 @@
         const response = await fetch('/api/overview');
         return await response.json();
       } catch {
-        return { switches: 'N/A', hosts: 'N/A' };
+        return { switches: 'N/A', hosts: 'N/A', attacks: 'N/A', suspiciousTraffic: 'N/A', legitTraffic: 'N/A', rules: 'N/A', alerts: [] };
       }
     }
 
@@ -403,9 +516,15 @@
       const trafficData = await fetchTrafficData();
       const topoData = await fetchTopologyData();
 
+      // Atualiza cards
       document.getElementById('switches').textContent = topoData.switches;
       document.getElementById('hosts').textContent = topoData.hosts;
+      document.getElementById('attacks').textContent = topoData.attacks ?? 'N/A';
+      document.getElementById('suspiciousTraffic').textContent = topoData.suspiciousTraffic ?? 'N/A';
+      document.getElementById('legitTraffic').textContent = topoData.legitTraffic ?? 'N/A';
+      document.getElementById('rules').textContent = topoData.rules ?? 'N/A';
 
+      // Atualiza gráfico
       if (!trafficChart) {
         const ctx = document.getElementById('trafficChart').getContext('2d');
         trafficChart = new Chart(ctx, {
@@ -414,37 +533,38 @@
           options: {
             responsive: true,
             scales: {
-              y: {
-                beginAtZero: true,
-                ticks: {
-                  color: '#ccc'
-                }
-              },
-              x: {
-                ticks: {
-                  color: '#ccc'
-                }
-              }
+              y: { beginAtZero: true, ticks: { color: '#ccc' } },
+              x: { ticks: { color: '#ccc' } }
             },
-            plugins: {
-              legend: {
-                labels: { color: '#ccc' }
-              }
-            }
+            plugins: { legend: { labels: { color: '#ccc' } } }
           }
         });
       } else {
         trafficChart.data = trafficData;
         trafficChart.update();
       }
+
+      // Atualiza alertas
+      const alertsList = document.getElementById('alerts-list');
+      alertsList.innerHTML = '';
+      if(topoData.alerts) {
+        topoData.alerts.forEach(a => {
+          const li = document.createElement('li');
+          li.className = `alert ${a.type}`; // 'red' ou 'orange'
+          li.innerHTML = `<strong>${a.title}</strong><br>Origem: ${a.src} → Destino: ${a.dst} | Porta: ${a.port ?? '-'}<span class="time">${a.time}</span>`;
+          alertsList.appendChild(li);
+        });
+      }
+    }
+
+    function clearAlerts() {
+      document.getElementById('alerts-list').innerHTML = '';
     }
 
     async function init() {
       await fetchSwitches();
       await fetchHosts();
       await updateDashboard();
-
-      // Atualiza a cada 10s
       setInterval(updateDashboard, 10000);
     }
 
