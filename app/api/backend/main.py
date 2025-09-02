@@ -82,7 +82,7 @@ def block_flow(request: BlockRequest):
 @app.get("/api/traffic")
 def get_traffic():
     conn = get_db_connection()
-    df = conn.execute("SELECT dpid, eth_src, eth_dst, in_port, bytes, time FROM traffic").fetchall()
+    df = conn.execute("SELECT dpid, eth_src, eth_dst, in_port, bytes, time FROM flows").fetchall()
     conn.close()
 
     if not df:
@@ -157,11 +157,11 @@ def get_hosts():
 @app.get("/api/stats")
 def get_stats():
     conn = get_db_connection()
-    rows = conn.execute("SELECT prediction FROM traffic").fetchall()
+    rows = conn.execute("SELECT label FROM flows").fetchall()
     conn.close()
 
     total = len(rows)
-    suspicious = sum(1 for row in rows if row["prediction"] == 1) if rows else 0
+    suspicious = sum(1 for row in rows if row["label"] == 1) if rows else 0
     legitimate = total - suspicious
     legitimate_pct = round((legitimate / total) * 100, 1) if total > 0 else 100.0
     attacks_detected = suspicious
@@ -178,7 +178,7 @@ def get_stats():
 @app.get("/api/alerts")
 def get_recent_alerts(limit: int = 5):
     conn = get_db_connection()
-    rows = conn.execute("SELECT eth_src, eth_dst, in_port, time FROM traffic WHERE prediction = 1 ORDER BY time DESC LIMIT ?", (limit,)).fetchall()
+    rows = conn.execute("SELECT eth_src, eth_dst, in_port, time FROM flows WHERE label = 1 ORDER BY time DESC LIMIT ?", (limit,)).fetchall()
     conn.close()
 
     alerts = [{"source": r["eth_src"], "destination": r["eth_dst"], "port": r["in_port"], "time": r["time"]} for r in rows]
