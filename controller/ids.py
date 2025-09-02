@@ -207,7 +207,7 @@ class ControllerAPI(app_manager.RyuApp):
                 row["time"] = float(row["time"]) if pd.notna(row["time"]) else time.time()
 
                 self.save_flow(row, bool(pred))
-                if pred == 1:
+                if pred == 1 and row["eth_src"] != "UNKNOWN" and row["eth_dst"] != "UNKNOWN":
                     self.block_traffic(row['dpid'], row['eth_src'], row['eth_dst'], row['in_port'])
                     self.logger.warning("Blocked malicious flow: {}".format(row.to_dict()))
                 else:
