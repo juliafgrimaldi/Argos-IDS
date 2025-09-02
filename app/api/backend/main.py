@@ -12,13 +12,14 @@ app = FastAPI()
 
 RYU_REST_URL = "http://127.0.0.1:8080"
 CSV_FILE = 'traffic_predict.csv'
-DB_FILE = "traffic.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  
+DB_PATH = os.path.join(BASE_DIR, "../../controller/traffic.db")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_FILE)
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  
     return conn
 
@@ -137,10 +138,10 @@ def get_network_overview():
 @app.get("/api/switches")
 def get_switches():
     try:
-        response = requests.get("{}/v1.0/topology/switches".format(RYU_REST_URL))
+        response = requests.get("{}/stats/switches".format(RYU_REST_URL))
         response.raise_for_status()
         switches = response.json()
-        return {"switches": [sw["dpid"] for sw in switches]}
+        return {"switches": switches}
     except Exception as e:
         return {"error": "Falha ao obter switches do Ryu: {}".format(str(e))}
 
