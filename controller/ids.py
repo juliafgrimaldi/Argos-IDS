@@ -3,7 +3,7 @@ import os
 import time
 import requests
 import pandas as pd
-import socketio
+import math
 import sqlite3
 from ryu.base import app_manager
 from ryu.lib import hub
@@ -72,6 +72,12 @@ class ControllerAPI(app_manager.RyuApp):
         try:
             conn = sqlite3.connect("traffic.db")
             cursor = conn.cursor()
+            packets = row.get("packets", 0)
+            bytes = row.get("bytes", 0)
+            duration_sec = row.get("duration_sec", 0)
+            packets = int(packets) if packets == packets else 0
+            bytes = int(bytes) if bytes == bytes else 0
+            duration_sec = int(duration_sec) if duration_sec == duration_sec else 0
             cursor.execute("""
             INSERT INTO flows (
                 time, dpid, in_port, eth_src, eth_dst, packets, bytes, duration_sec, label
@@ -82,9 +88,9 @@ class ControllerAPI(app_manager.RyuApp):
                 int(row["in_port"]),
                 row["eth_src"],
                 row["eth_dst"],
-                int(row.get("packets", 0)),
-                int(row.get("bytes", 0)),
-                int(row.get("duration_sec", 0)),
+                packets,
+                bytes,
+                duration_sec,
                 1 if label else 0
             ))
             conn.commit()
@@ -190,9 +196,19 @@ class ControllerAPI(app_manager.RyuApp):
             final_predictions = self.weighted_vote(predictions)
             for i, pred in enumerate(final_predictions):
                 row = df.iloc[i]
+
+                row["packets"] = int(row["packets"]) if pd.notna(row["packets"]) else 0
+                row["bytes"] = int(row["bytes"]) if pd.notna(row["bytes"]) else 0
+                row["duration_sec"] = int(row["duration_sec"]) if pd.notna(row["duration_sec"]) else 0
+                row["dpid"] = int(row["dpid"]) if pd.notna(row["dpid"]) else 0
+                row["in_port"] = int(row["in_port"]) if pd.notna(row["in_port"]) else 0
+                row["eth_src"] = row["eth_src"] if pd.notna(row["eth_src"]) else "UNKNOWN"
+                row["eth_dst"] = row["eth_dst"] if pd.notna(row["eth_dst"]) else "UNKNOWN"
+                row["time"] = float(row["time"]) if pd.notna(row["time"]) else time.time()
+
                 self.save_flow(row, bool(pred))
                 if pred == 1:
-                    self.block_traffic(int(row['dpid']), row['eth_src'], row['eth_dst'], int(row['in_port']))
+                    self.block_traffic(row['dpid'], row['eth_src'], row['eth_dst'], row['in_port'])
                     self.logger.warning("Blocked malicious flow: {}".format(row.to_dict()))
                 else:
                     self.logger.info("Benign flow: {}".format(row.to_dict()))
