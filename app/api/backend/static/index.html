@@ -515,14 +515,16 @@
     async function updateDashboard() {
       const trafficData = await fetchTrafficData();
       const topoData = await fetchTopologyData();
+      const statsResp = await fetch('/api/stats');
+      const stats = await statsResp.json();
 
       // Atualiza cards
       document.getElementById('switches').textContent = topoData.switches;
       document.getElementById('hosts').textContent = topoData.hosts;
-      document.getElementById('attacks').textContent = topoData.attacks ?? 'N/A';
+      document.getElementById('attacks').textContent = topoData.attacks_detected;
       document.getElementById('suspiciousTraffic').textContent = topoData.suspiciousTraffic ?? 'N/A';
-      document.getElementById('legitTraffic').textContent = topoData.legitTraffic ?? 'N/A';
-      document.getElementById('rules').textContent = topoData.rules ?? 'N/A';
+      document.getElementById('legitTraffic').textContent = topoData.legitTraffic_pct;
+      document.getElementById('rules').textContent = topoData.rules_active;
 
       // Atualiza gráfico
       if (!trafficChart) {
