@@ -186,6 +186,7 @@ class ControllerAPI(app_manager.RyuApp):
                 #    pred, _ = predict_svm(bundle, self.filename)
                 if name == 'decision_tree':
                     pred, _ = predict_decision_tree(bundle, self.filename)
+                    print(pred)
                 #elif name == 'naive_bayes':
                  #   pred, _ = predict_naive_bayes(bundle, self.filename)
                 #elif name == 'random_forest':
@@ -193,7 +194,7 @@ class ControllerAPI(app_manager.RyuApp):
 
                 predictions[name] = pred
 
-            final_predictions = self.weighted_vote(predictions)
+            final_predictions = pred
             for i, pred in enumerate(final_predictions):
                 row = df.iloc[i]
 
@@ -220,12 +221,12 @@ class ControllerAPI(app_manager.RyuApp):
         votes = {}
         weights = {}
         for model_name, pred_list in predictions.items():
-            weight = self.accuracies.get(model_name, 1.0)
+            #weight = self.accuracies.get(model_name, 1.0)
             for i, pred in enumerate(pred_list):
                 votes.setdefault(i, 0.0)
-                weights.setdefault(i, 0.0)
-                votes[i] += pred * weight
-                weights[i] += weight
+                #weights.setdefault(i, 0.0)
+                #votes[i] += pred * weight
+                #weights[i] += weight
 
         final_predictions = []
         #for i in range(len(votes)):
