@@ -115,10 +115,10 @@ class ControllerAPI(app_manager.RyuApp):
                 return pickle.load(f)
 
         self.models['decision_tree'] = load_bundle('dt')
-        self.models['knn'] = load_bundle('knn')
-        self.models['naive_bayes'] = load_bundle('nb')
-        self.models['random_forest'] = load_bundle('randomforest')
-        self.models['svm'] = load_bundle('svm')
+        #self.models['knn'] = load_bundle('knn')
+        #self.models['naive_bayes'] = load_bundle('nb')
+        #self.models['random_forest'] = load_bundle('randomforest')
+        #self.models['svm'] = load_bundle('svm')
 
     def _initialize_csv(self):
         if not os.path.exists(self.filename):
@@ -180,16 +180,16 @@ class ControllerAPI(app_manager.RyuApp):
 
             for name, bundle in self.models.items():
 
-                if name == 'knn':
-                    pred, _ = predict_knn(bundle, self.filename)
-                elif name == 'svm':
-                    pred, _ = predict_svm(bundle, self.filename)
-                elif name == 'decision_tree':
+                #if name == 'knn':
+                #    pred, _ = predict_knn(bundle, self.filename)
+                #elif name == 'svm':
+                #    pred, _ = predict_svm(bundle, self.filename)
+                if name == 'decision_tree':
                     pred, _ = predict_decision_tree(bundle, self.filename)
-                elif name == 'naive_bayes':
-                    pred, _ = predict_naive_bayes(bundle, self.filename)
-                elif name == 'random_forest':
-                    pred, _ = predict_random_forest(bundle, self.filename)
+                #elif name == 'naive_bayes':
+                 #   pred, _ = predict_naive_bayes(bundle, self.filename)
+                #elif name == 'random_forest':
+                #    pred, _ = predict_random_forest(bundle, self.filename)
 
                 predictions[name] = pred
 
@@ -228,12 +228,12 @@ class ControllerAPI(app_manager.RyuApp):
                 weights[i] += weight
 
         final_predictions = []
-        for i in range(len(votes)):
-            if weights[i] > 0:
-                avg_vote = votes[i] / weights[i]
-            else:
-                avg_vote = 0
-            final_predictions.append(1 if avg_vote > 0.5 else 0)
+        #for i in range(len(votes)):
+        #    if weights[i] > 0:
+        #        avg_vote = votes[i] / weights[i]
+        #    else:
+        #        avg_vote = 0
+        #    final_predictions.append(1 if avg_vote > 0.5 else 0)
 
         return final_predictions
     
