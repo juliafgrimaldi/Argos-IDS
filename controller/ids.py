@@ -121,12 +121,11 @@ class ControllerAPI(app_manager.RyuApp):
         #self.models['svm'] = load_bundle('svm')
 
     def _initialize_csv(self):
-        if not os.path.exists(self.filename):
-            df = pd.DataFrame(columns=[
-                'time', 'dpid', 'in_port', 'eth_src', 'eth_dst',
-                'packets', 'bytes', 'duration_sec'
-            ])
-            df.to_csv(self.filename, index=False)
+        df = pd.DataFrame(columns=[
+            'time', 'dpid', 'in_port', 'eth_src', 'eth_dst',
+            'packets', 'bytes', 'duration_sec'
+        ])
+        df.to_csv(self.filename, index=False)
 
     def _monitor(self):
         while True:
