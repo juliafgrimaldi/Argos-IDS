@@ -81,22 +81,42 @@ class ControllerAPI(app_manager.RyuApp):
             packets = int(packets) if packets == packets else 0
             bytes = int(bytes) if bytes == bytes else 0
             duration_sec = int(duration_sec) if duration_sec == duration_sec else 0
-            cursor.execute("""
-            INSERT INTO flows (
-                time, dpid, in_port, eth_src, eth_dst, packets, bytes, duration_sec, prediction_score, label
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                row.get("time", time.time()),
-                int(row["dpid"]),
-                int(row["in_port"]),
-                row["eth_src"],
-                row["eth_dst"],
-                packets,
-                bytes,
-                duration_sec,
-                float(prediction_score),
-                1 if label else 0
+            cursor.execute("PRAGMA table_info(flows)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'prediction_score' in columns:
+                cursor.execute("""
+                INSERT INTO flows (
+                    time, dpid, in_port, eth_src, eth_dst, packets, bytes, duration_sec, prediction_score, label
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    row.get("time", time.time()),
+                    int(row["dpid"]),
+                    int(row["in_port"]),
+                    row["eth_src"],
+                    row["eth_dst"],
+                    packets,
+                    bytes,
+                    duration_sec,
+                    float(prediction_score),
+                    1 if label else 0
             ))
+            else:
+                cursor.execute("""
+                INSERT INTO flows (
+                    time, dpid, in_port, eth_src, eth_dst, packets, bytes, duration_sec, label
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    row.get("time", time.time()),
+                    int(row["dpid"]),
+                    int(row["in_port"]),
+                    row["eth_src"],
+                    row["eth_dst"],
+                    packets,
+                    bytes,
+                    duration_sec,
+                    1 if label else 0
+                ))
+
             conn.commit()
             conn.close()
         except Exception as e:
@@ -270,7 +290,7 @@ class ControllerAPI(app_manager.RyuApp):
                 if i >= len(df):
                     break
                     
-                row = df.iloc[i]
+                row = df.iloc[i].copy()
 
                 row["packets"] = int(row["packets"]) if pd.notna(row["packets"]) else 0
                 row["bytes"] = int(row["bytes"]) if pd.notna(row["bytes"]) else 0
