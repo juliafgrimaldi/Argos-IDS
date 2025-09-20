@@ -16,6 +16,7 @@ from ML.predict_random_forest import predict_random_forest
 
 set_config(transform_output="pandas")
 ryu_instance = None
+
 class ControllerAPI(app_manager.RyuApp):
     _CONTEXTS = {}
 
@@ -30,6 +31,9 @@ class ControllerAPI(app_manager.RyuApp):
             self.models = {}
             global ryu_instance
             ryu_instance = self
+            
+            self.classification_threshold = 0.5
+            
             self.accuracies = {
                 "decision_tree": 0.97,
                 "knn": 0.97,
@@ -46,7 +50,6 @@ class ControllerAPI(app_manager.RyuApp):
         except Exception as e:
             self.logger.error("Erro no __init__: {}".format(e))
 
-
     def _initialize_db(self):
         conn = sqlite3.connect("traffic.db")
         cursor = conn.cursor()
@@ -61,14 +64,14 @@ class ControllerAPI(app_manager.RyuApp):
             packets INTEGER,
             bytes INTEGER,
             duration_sec INTEGER,
+            prediction_score REAL,
             label BOOLEAN
         )
         """)
         conn.commit()
         conn.close()
 
-
-    def save_flow(self, row, label: bool):
+    def save_flow(self, row, label: bool, prediction_score: float = 0.0):
         try:
             conn = sqlite3.connect("traffic.db")
             cursor = conn.cursor()
@@ -80,8 +83,8 @@ class ControllerAPI(app_manager.RyuApp):
             duration_sec = int(duration_sec) if duration_sec == duration_sec else 0
             cursor.execute("""
             INSERT INTO flows (
-                time, dpid, in_port, eth_src, eth_dst, packets, bytes, duration_sec, label
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                time, dpid, in_port, eth_src, eth_dst, packets, bytes, duration_sec, prediction_score, label
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 row.get("time", time.time()),
                 int(row["dpid"]),
@@ -91,6 +94,7 @@ class ControllerAPI(app_manager.RyuApp):
                 packets,
                 bytes,
                 duration_sec,
+                float(prediction_score),
                 1 if label else 0
             ))
             conn.commit()
@@ -98,12 +102,11 @@ class ControllerAPI(app_manager.RyuApp):
         except Exception as e:
             self.logger.error("Erro ao salvar fluxo no banco: {}".format(e))
 
-
     def get_active_dpids(self):
         try:
             response = requests.get("http://127.0.0.1:8080/stats/switches")
             response.raise_for_status()
-            return response.json()  # Lista de dpids
+            return response.json()
         except Exception as e:
             self.logger.error("Erro ao buscar switches ativos: {}".format(e))
         return []
@@ -111,14 +114,30 @@ class ControllerAPI(app_manager.RyuApp):
     def _load_models(self):
         self.logger.info("Loading bundled models from pickle...")
         def load_bundle(name):
-            with open("models/{}_model_bundle.pkl".format(name), "rb") as f:
-                return pickle.load(f)
+            try:
+                with open("models/{}_model_bundle.pkl".format(name), "rb") as f:
+                    return pickle.load(f)
+            except Exception as e:
+                self.logger.error("Erro ao carregar modelo {}: {}".format(name, e))
+                return None
 
-        self.models['decision_tree'] = load_bundle('dt')
-        #self.models['knn'] = load_bundle('knn')
-        #self.models['naive_bayes'] = load_bundle('nb')
-        #self.models['random_forest'] = load_bundle('randomforest')
-        #self.models['svm'] = load_bundle('svm')
+        model_files = {
+            'decision_tree': 'dt',
+            'knn': 'knn',
+            'naive_bayes': 'nb',
+            'random_forest': 'randomforest',
+            'svm': 'svm'
+        }
+        
+        for model_name, file_name in model_files.items():
+            model_path = "models/{}_model_bundle.pkl".format(file_name)
+            if os.path.exists(model_path):
+                model = load_bundle(file_name)
+                if model is not None:
+                    self.models[model_name] = model
+                    self.logger.info("Modelo {} carregado com sucesso".format(model_name))
+            else:
+                self.logger.warning("Arquivo de modelo não encontrado: {}".format(model_path))
 
     def _initialize_csv(self):
         df = pd.DataFrame(columns=[
@@ -155,6 +174,11 @@ class ControllerAPI(app_manager.RyuApp):
                 duration_sec = stat.get('duration_sec', 0)
                 timestamp = time.time()
 
+                if len(rows) < 3:
+                    self.logger.info("Flow sample: packets={}, bytes={}, duration={}, eth_src={}, eth_dst={}".format(
+                        packets, bytes_count, duration_sec, eth_src, eth_dst
+                    ))
+
                 rows.append({
                     'time': timestamp,
                     'dpid': dpid,
@@ -168,33 +192,84 @@ class ControllerAPI(app_manager.RyuApp):
 
             if rows:
                 pd.DataFrame(rows).to_csv(self.filename, mode='a', index=False, header=not os.path.exists(self.filename))
+                self.logger.info("Coletados {} fluxos".format(len(rows)))
 
         except Exception as e:
             self.logger.error("Failed to collect stats for dpid {}: {}".format(dpid, e))
 
     def predict_traffic(self):
         try:
+            if not os.path.exists(self.filename):
+                self.logger.warning("CSV file doesn't exist yet")
+                return
+                
             df = pd.read_csv(self.filename)
+            if df.empty:
+                self.logger.info("No data for prediction")
+                return
+
+            self.logger.info("Iniciando predições para {} fluxos usando {} modelos".format(len(df), len(self.models)))
             predictions = {}
+            valid_predictions = 0
 
             for name, bundle in self.models.items():
+                try:
+                    self.logger.info("Executando predição com modelo: {}".format(name))
+                    
+                    if name == 'knn':
+                        pred, _ = predict_knn(bundle, self.filename)
+                    elif name == 'svm':
+                        pred, _ = predict_svm(bundle, self.filename)
+                    elif name == 'decision_tree':
+                        pred, _ = predict_decision_tree(bundle, self.filename)
+                    elif name == 'naive_bayes':
+                        pred, _ = predict_naive_bayes(bundle, self.filename)
+                    elif name == 'random_forest':
+                        pred, _ = predict_random_forest(bundle, self.filename)
+                    else:
+                        continue
+                    
+                    if pred is not None and len(pred) > 0:
+                        predictions[name] = pred
+                        valid_predictions += 1
+                        
+                        malicious_count = sum(pred)
+                        benign_count = len(pred) - malicious_count
+                        self.logger.info("Modelo {}: {} maliciosos, {} benignos ({:.1f}% maliciosos)".format(
+                            name, malicious_count, benign_count, 
+                            (malicious_count/len(pred))*100 if len(pred) > 0 else 0
+                        ))
+                    else:
+                        self.logger.warning("Modelo {} retornou predições inválidas".format(name))
+                        
+                except Exception as e:
+                    self.logger.error("Erro na predição do modelo {}: {}".format(name, e))
+                    import traceback
+                    self.logger.error("Traceback: {}".format(traceback.format_exc()))
 
-                #if name == 'knn':
-                #    pred, _ = predict_knn(bundle, self.filename)
-                #elif name == 'svm':
-                #    pred, _ = predict_svm(bundle, self.filename)
-                if name == 'decision_tree':
-                    pred, _ = predict_decision_tree(bundle, self.filename)
-                    print(pred)
-                #elif name == 'naive_bayes':
-                 #   pred, _ = predict_naive_bayes(bundle, self.filename)
-                #elif name == 'random_forest':
-                #    pred, _ = predict_random_forest(bundle, self.filename)
+            if not predictions:
+                self.logger.error("Nenhuma predição válida foi obtida!")
+                return
 
-                predictions[name] = pred
+            if len(predictions) > 1:
+                self.logger.info("Usando votação ponderada com {} modelos".format(len(predictions)))
+                final_predictions = self.weighted_vote(predictions)
+            else:
+                model_name = list(predictions.keys())[0]
+                final_predictions = predictions[model_name]
+                self.logger.info("Usando apenas modelo: {}".format(model_name))
 
-            final_predictions = pred
+
+            total_malicious = sum(final_predictions)
+            total_flows = len(final_predictions)
+            self.logger.info("RESULTADO FINAL: {} fluxos maliciosos de {} total ({:.1f}%)".format(
+                total_malicious, total_flows, (total_malicious/total_flows)*100 if total_flows > 0 else 0
+            ))
+
             for i, pred in enumerate(final_predictions):
+                if i >= len(df):
+                    break
+                    
                 row = df.iloc[i]
 
                 row["packets"] = int(row["packets"]) if pd.notna(row["packets"]) else 0
@@ -206,35 +281,75 @@ class ControllerAPI(app_manager.RyuApp):
                 row["eth_dst"] = row["eth_dst"] if pd.notna(row["eth_dst"]) else "UNKNOWN"
                 row["time"] = float(row["time"]) if pd.notna(row["time"]) else time.time()
 
-                self.save_flow(row, bool(pred))
+                confidence_score = self._calculate_confidence_score(predictions, i) if len(predictions) > 1 else float(pred)
+                
+                self.save_flow(row, bool(pred), confidence_score)
+                
                 if pred == 1 and row["eth_src"] != "UNKNOWN" and row["eth_dst"] != "UNKNOWN":
+                    self.logger.warning("FLUXO MALICIOSO DETECTADO (confiança: {:.3f}): dpid={}, src={}, dst={}, packets={}, bytes={}".format(
+                        confidence_score, row['dpid'], row['eth_src'], row['eth_dst'], row['packets'], row['bytes']
+                    ))
                     self.block_traffic(row['dpid'], row['eth_src'], row['eth_dst'], row['in_port'])
-                    self.logger.warning("Blocked malicious flow: {}".format(row.to_dict()))
                 else:
-                    self.logger.info("Benign flow: {}".format(row.to_dict()))
+                    self.logger.debug("Fluxo benigno: packets={}, bytes={}".format(row['packets'], row['bytes']))
 
         except Exception as e:
             self.logger.error("Prediction error: {}".format(e))
+            import traceback
+            self.logger.error("Traceback: {}".format(traceback.format_exc()))
+
+    def _calculate_confidence_score(self, predictions, index):
+        if not predictions or index >= len(list(predictions.values())[0]):
+            return 0.0
+            
+        votes = []
+        total_weight = 0
+        weighted_sum = 0
+        
+        for model_name, pred_list in predictions.items():
+            if index < len(pred_list):
+                weight = self.accuracies.get(model_name, 1.0)
+                votes.append(pred_list[index])
+                weighted_sum += pred_list[index] * weight
+                total_weight += weight
+        
+        if total_weight > 0:
+            return weighted_sum / total_weight
+        else:
+            return 0.0
 
     def weighted_vote(self, predictions):
-        votes = {}
-        weights = {}
+        if not predictions:
+            return []
+            
+        num_samples = len(list(predictions.values())[0])
+        
         for model_name, pred_list in predictions.items():
-            #weight = self.accuracies.get(model_name, 1.0)
-            for i, pred in enumerate(pred_list):
-                votes.setdefault(i, 0.0)
-                #weights.setdefault(i, 0.0)
-                #votes[i] += pred * weight
-                #weights[i] += weight
-
+            if len(pred_list) != num_samples:
+                self.logger.warning("Modelo {} tem {} predições, esperado {}".format(
+                    model_name, len(pred_list), num_samples
+                ))
+        
         final_predictions = []
-        #for i in range(len(votes)):
-        #    if weights[i] > 0:
-        #        avg_vote = votes[i] / weights[i]
-        #    else:
-        #        avg_vote = 0
-        #    final_predictions.append(1 if avg_vote > 0.5 else 0)
-
+        
+        for i in range(num_samples):
+            weighted_sum = 0.0
+            total_weight = 0.0
+            
+            for model_name, pred_list in predictions.items():
+                if i < len(pred_list):
+                    weight = self.accuracies.get(model_name, 1.0)
+                    weighted_sum += pred_list[i] * weight
+                    total_weight += weight
+            
+            if total_weight > 0:
+                avg_vote = weighted_sum / total_weight
+                final_prediction = 1 if avg_vote > self.classification_threshold else 0
+            else:
+                final_prediction = 0
+                
+            final_predictions.append(final_prediction)
+        
         return final_predictions
     
     def block_traffic(self, dpid, eth_src, eth_dst, in_port):
@@ -256,4 +371,3 @@ class ControllerAPI(app_manager.RyuApp):
                 self.logger.error("Failed to block traffic: {} {}".format(response.status_code, response.text))
         except Exception as e:
             self.logger.error("Error sending block rule: {}".format(e))
-
