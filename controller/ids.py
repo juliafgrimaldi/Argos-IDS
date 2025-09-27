@@ -32,6 +32,9 @@ class ControllerAPI(app_manager.RyuApp):
             global ryu_instance
             ryu_instance = self
             
+            self.start_time = time.time()
+            self.logger.info("IDS iniciado em timestamp: {}".format(self.start_time))
+
             self.classification_threshold = 0.5
             
             self.accuracies = {
@@ -228,6 +231,14 @@ class ControllerAPI(app_manager.RyuApp):
                 self.logger.info("No data for prediction")
                 return
 
+            df_new = df[df['time'] >= self.start_time].copy()
+            if df_new.empty:
+                self.logger.info("Nenhum tráfego novo desde a inicialização")
+                return
+            
+            temp_filename = "./backend/temp_predict.csv"
+            df_new.to_csv(temp_filename, index=False)
+
             self.logger.info("Iniciando predições para {} fluxos usando {} modelos".format(len(df), len(self.models)))
             predictions = {}
             valid_predictions = 0
@@ -237,15 +248,15 @@ class ControllerAPI(app_manager.RyuApp):
                     self.logger.info("Executando predição com modelo: {}".format(name))
                     
                     if name == 'knn':
-                        pred, _ = predict_knn(bundle, self.filename)
+                        pred, _ = predict_knn(bundle, temp_filename)
                     elif name == 'svm':
-                        pred, _ = predict_svm(bundle, self.filename)
+                        pred, _ = predict_svm(bundle, temp_filename)
                     elif name == 'decision_tree':
-                        pred, _ = predict_decision_tree(bundle, self.filename)
+                        pred, _ = predict_decision_tree(bundle, temp_filename)
                     elif name == 'naive_bayes':
-                        pred, _ = predict_naive_bayes(bundle, self.filename)
+                        pred, _ = predict_naive_bayes(bundle, temp_filename)
                     elif name == 'random_forest':
-                        pred, _ = predict_random_forest(bundle, self.filename)
+                        pred, _ = predict_random_forest(bundle, temp_filename)
                     else:
                         continue
                     
@@ -266,6 +277,9 @@ class ControllerAPI(app_manager.RyuApp):
                     self.logger.error("Erro na predição do modelo {}: {}".format(name, e))
                     import traceback
                     self.logger.error("Traceback: {}".format(traceback.format_exc()))
+
+            if os.path.exists(temp_filename):
+                os.remove(temp_filename)
 
             if not predictions:
                 self.logger.error("Nenhuma predição válida foi obtida!")
@@ -312,6 +326,9 @@ class ControllerAPI(app_manager.RyuApp):
                     self.block_traffic(row['dpid'], row['eth_src'], row['eth_dst'], row['in_port'])
                 else:
                     self.logger.debug("Fluxo benigno: packets={}, bytes={}".format(row['packets'], row['bytes']))
+
+            df_remaining = df[df['time'] < self.start_time].copy()
+            df_remaining.to_csv(self.filename, index=False)
 
         except Exception as e:
             self.logger.error("Prediction error: {}".format(e))
