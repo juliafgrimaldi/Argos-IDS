@@ -33,6 +33,7 @@ class ControllerAPI(app_manager.RyuApp):
             ryu_instance = self
             
             self.start_time = time.time()
+            self.last_processed_time = self.start_time
             self.logger.info("IDS iniciado em timestamp: {}".format(self.start_time))
 
             self.classification_threshold = 0.5
@@ -186,6 +187,7 @@ class ControllerAPI(app_manager.RyuApp):
             response.raise_for_status()
             flow_stats = response.json().get(str(dpid), [])
             rows = []
+            current_time = time.time()
 
             for stat in flow_stats:
                 match = stat.get('match', {})
@@ -195,7 +197,6 @@ class ControllerAPI(app_manager.RyuApp):
                 packets = stat.get('packet_count', 0)
                 bytes_count = stat.get('byte_count', 0)
                 duration_sec = stat.get('duration_sec', 0)
-                timestamp = time.time()
 
                 if len(rows) < 3:
                     self.logger.info("Flow sample: packets={}, bytes={}, duration={}, eth_src={}, eth_dst={}".format(
@@ -203,7 +204,7 @@ class ControllerAPI(app_manager.RyuApp):
                     ))
 
                 rows.append({
-                    'time': timestamp,
+                    'time': current_time,
                     'dpid': dpid,
                     'in_port': in_port,
                     'eth_src': eth_src,
@@ -214,7 +215,8 @@ class ControllerAPI(app_manager.RyuApp):
                 })
 
             if rows:
-                pd.DataFrame(rows).to_csv(self.filename, mode='a', index=False, header=not os.path.exists(self.filename))
+                file_exists = os.path.exists(self.filename)
+                pd.DataFrame(rows).to_csv(self.filename, mode='a', index=False, header=not file_exists)
                 self.logger.info("Coletados {} fluxos".format(len(rows)))
 
         except Exception as e:
@@ -231,17 +233,18 @@ class ControllerAPI(app_manager.RyuApp):
                 self.logger.info("No data for prediction")
                 return
 
-            df_new = df[df['time'] >= self.start_time].copy()
-            if df_new.empty:
+            df_unprocessed = df[df['time'] > self.last_processed_time].copy()
+            if df_unprocessed.empty:
                 self.logger.info("Nenhum tráfego novo desde a inicialização")
                 return
             
-            temp_filename = "./backend/temp_predict.csv"
-            df_new.to_csv(temp_filename, index=False)
+            processing_start_time = time.time()
 
-            self.logger.info("Iniciando predições para {} fluxos usando {} modelos".format(len(df), len(self.models)))
+            temp_filename = "./backend/temp_predict.csv"
+            df_unprocessed.to_csv(temp_filename, index=False)
+
+            self.logger.info("Iniciando predições para {} fluxos usando {} modelos".format(len(df_unprocessed), len(self.models)))
             predictions = {}
-            valid_predictions = 0
 
             for name, bundle in self.models.items():
                 try:
@@ -262,7 +265,6 @@ class ControllerAPI(app_manager.RyuApp):
                     
                     if pred is not None and len(pred) > 0:
                         predictions[name] = pred
-                        valid_predictions += 1
                         
                         malicious_count = sum(pred)
                         benign_count = len(pred) - malicious_count
@@ -300,11 +302,12 @@ class ControllerAPI(app_manager.RyuApp):
                 total_malicious, total_flows, (total_malicious/total_flows)*100 if total_flows > 0 else 0
             ))
 
+            blocked_count = 0
             for i, pred in enumerate(final_predictions):
                 if i >= len(df):
                     break
                     
-                row = df.iloc[i].copy()
+                row = df_unprocessed.iloc[i].copy()
 
                 row["packets"] = int(row["packets"]) if pd.notna(row["packets"]) else 0
                 row["bytes"] = int(row["bytes"]) if pd.notna(row["bytes"]) else 0
@@ -320,6 +323,7 @@ class ControllerAPI(app_manager.RyuApp):
                 self.save_flow(row, bool(pred), confidence_score)
                 
                 if pred == 1 and row["eth_src"] != "UNKNOWN" and row["eth_dst"] != "UNKNOWN":
+                    blocked_count += 1
                     self.logger.warning("FLUXO MALICIOSO DETECTADO (confiança: {:.3f}): dpid={}, src={}, dst={}, packets={}, bytes={}".format(
                         confidence_score, row['dpid'], row['eth_src'], row['eth_dst'], row['packets'], row['bytes']
                     ))
@@ -327,8 +331,12 @@ class ControllerAPI(app_manager.RyuApp):
                 else:
                     self.logger.debug("Fluxo benigno: packets={}, bytes={}".format(row['packets'], row['bytes']))
 
-            df_remaining = df[df['time'] < self.start_time].copy()
-            df_remaining.to_csv(self.filename, index=False)
+            self.last_processed_time = processing_start_time
+
+            if blocked_count > 0:
+                self.logger.warning("BLOQUEIOS NESTE CICLO: {} (apenas novos fluxos)".format(blocked_count))
+            else:
+                self.logger.info("Nenhum bloqueio - todos os {} novos fluxos são benignos".format(total_flows))
 
         except Exception as e:
             self.logger.error("Prediction error: {}".format(e))
