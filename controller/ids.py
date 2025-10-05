@@ -7,6 +7,7 @@ import math
 import sqlite3
 from ryu.base import app_manager
 from ryu.lib import hub
+from ryu.controller import event
 from sklearn import set_config
 from ML.predict_knn import predict_knn
 from ML.predict_svm import predict_svm
@@ -30,6 +31,8 @@ class ControllerAPI(app_manager.RyuApp):
             self.models = {}
             global ryu_instance
             ryu_instance = self
+            self.blocked_sources = {}  
+            self.block_cooldown = 300 
             
             self.start_time = time.time()
             self.last_processed_time = self.start_time
@@ -195,6 +198,20 @@ class ControllerAPI(app_manager.RyuApp):
                 bytes_count = stat.get('byte_count', 0)
                 duration_sec = stat.get('duration_sec', 0)
 
+                packets_per_sec = packets / duration_sec if duration_sec > 0 else 0
+                bytes_per_sec = bytes_count / duration_sec if duration_sec > 0 else 0
+
+                if packets_per_sec > 10000:  # DDoS claro
+                    self.logger.warning("ATAQUE VOLUMÉTRICO DETECTADO: {} pps".format(packets_per_sec))
+                    datapath = self.datapaths.get(dpid)
+                    if datapath:
+                        self.block_traffic_immediate(datapath, eth_src, eth_dst, in_port)
+                    continue
+
+                if packets <= 10 and bytes_count <= 1000:
+                    self.logger.debug("Ignorando tráfego de controle")
+                    continue
+
                 if packets == 0 or bytes_count == 0:
                     continue
 
@@ -202,7 +219,7 @@ class ControllerAPI(app_manager.RyuApp):
                     self.logger.debug("Ignorando fluxo efêmero (duration < 1s)")
                     continue
 
-                if len(rows) < 3:
+                if packets >= 10 and packets <= 1000:
                     self.logger.info("Flow sample: packets={}, bytes={}, duration={}, eth_src={}, eth_dst={}".format(
                         packets, bytes_count, duration_sec, eth_src, eth_dst
                     ))
@@ -300,9 +317,16 @@ class ControllerAPI(app_manager.RyuApp):
 
             total_malicious = sum(final_predictions)
             total_flows = len(final_predictions)
+            percentage_malicious = (total_malicious/total_flows)*100 if total_flows > 0 else 0
             self.logger.info("RESULTADO FINAL: {} fluxos maliciosos de {} total ({:.1f}%)".format(
                 total_malicious, total_flows, (total_malicious/total_flows)*100 if total_flows > 0 else 0
             ))
+
+            if percentage_malicious > 80 and total_flows > 10:
+                self.logger.error("ALERTA: Taxa de detecção suspeita ({:.1f}%)! Possível problema nos modelos ou dados.".format(
+                    percentage_malicious
+                ))
+                self.logger.error("Recomendação: Verifique se os modelos foram treinados corretamente.")
 
             blocked_count = 0
             for i, pred in enumerate(final_predictions):
@@ -400,6 +424,12 @@ class ControllerAPI(app_manager.RyuApp):
         return final_predictions
     
     def block_traffic(self, dpid, eth_src, eth_dst, in_port):
+        if eth_src in self.blocked_sources:
+            last_block = self.blocked_sources[eth_src]
+            if time.time() - last_block < self.block_cooldown:
+                self.logger.debug("Origem {} já bloqueada recentemente".format(eth_src))
+                return 
+
         flow_rule = {
             "dpid": dpid,
             "priority": 100,

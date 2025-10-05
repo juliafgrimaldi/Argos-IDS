@@ -5,7 +5,7 @@
 ryu-manager ryu.app.simple_switch_13 ryu.app.ofctl_rest
 
 2- run argos-ids:
-ryu-manager --wsapi-port 9000 ryu.app_ofctl_rest controller.py 
+ryu-manager --wsapi-port 9000 ryu.app.ofctl_rest ids.py 
 
 3-create topology:
 python topo.py
