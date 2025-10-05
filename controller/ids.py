@@ -11,7 +11,6 @@ from sklearn import set_config
 from ML.predict_knn import predict_knn
 from ML.predict_svm import predict_svm
 from ML.predict_decision_tree import predict_decision_tree
-from ML.predict_naive_bayes import predict_naive_bayes
 from ML.predict_random_forest import predict_random_forest
 
 set_config(transform_output="pandas")
@@ -36,12 +35,11 @@ class ControllerAPI(app_manager.RyuApp):
             self.last_processed_time = self.start_time
             self.logger.info("IDS iniciado em timestamp: {}".format(self.start_time))
 
-            self.classification_threshold = 0.5
+            self.classification_threshold = 0.7
             
             self.accuracies = {
                 "decision_tree": 0.97,
                 "knn": 0.97,
-                "naive_bayes": 0.70,
                 "random_forest": 0.97,
                 "svm": 0.87,
             }
@@ -148,7 +146,6 @@ class ControllerAPI(app_manager.RyuApp):
         model_files = {
             'decision_tree': 'dt',
             'knn': 'knn',
-            'naive_bayes': 'nb',
             'random_forest': 'randomforest',
             'svm': 'svm'
         }
@@ -197,6 +194,13 @@ class ControllerAPI(app_manager.RyuApp):
                 packets = stat.get('packet_count', 0)
                 bytes_count = stat.get('byte_count', 0)
                 duration_sec = stat.get('duration_sec', 0)
+
+                if packets == 0 or bytes_count == 0:
+                    continue
+
+                if duration_sec < 1:
+                    self.logger.debug("Ignorando fluxo efêmero (duration < 1s)")
+                    continue
 
                 if len(rows) < 3:
                     self.logger.info("Flow sample: packets={}, bytes={}, duration={}, eth_src={}, eth_dst={}".format(
@@ -256,8 +260,6 @@ class ControllerAPI(app_manager.RyuApp):
                         pred, _ = predict_svm(bundle, temp_filename)
                     elif name == 'decision_tree':
                         pred, _ = predict_decision_tree(bundle, temp_filename)
-                    elif name == 'naive_bayes':
-                        pred, _ = predict_naive_bayes(bundle, temp_filename)
                     elif name == 'random_forest':
                         pred, _ = predict_random_forest(bundle, temp_filename)
                     else:
