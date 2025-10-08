@@ -26,8 +26,17 @@ class ControllerAPI(app_manager.RyuApp):
             self.api_url = "http://127.0.0.1:8080/stats/flow/"
             self.block_url = "http://127.0.0.1:8080/stats/flowentry/add"
             self.filename = "./backend/traffic_predict.csv"
-            self.numeric_columns = ['packets', 'bytes', 'duration_sec']
-            self.categorical_columns = ['dpid', 'in_port', 'eth_src', 'eth_dst']
+            self.numeric_columns = [
+                'flow_duration_sec', 'flow_duration_nsec', 'idle_timeout', 
+                'hard_timeout', 'flags', 'packet_count', 'byte_count',
+                'packet_count_per_second', 'packet_count_per_nsecond',
+                'byte_count_per_second', 'byte_count_per_nsecond'
+            ]
+            self.categorical_columns = [
+                'datapath_id', 'flow_id', 'ip_src', 'tp_src', 
+                'ip_dst', 'tp_dst', 'ip_proto', 'icmp_code', 'icmp_type'
+            ]
+
             self.models = {}
             global ryu_instance
             ryu_instance = self
@@ -61,14 +70,27 @@ class ControllerAPI(app_manager.RyuApp):
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS flows (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            time REAL,
-            dpid INTEGER,
-            in_port INTEGER,
-            eth_src TEXT,
-            eth_dst TEXT,
-            packets INTEGER,
-            bytes INTEGER,
-            duration_sec INTEGER,
+            timestamp REAL,
+            datapath_id INTEGER,
+            flow_id TEXT,
+            ip_src TEXT,
+            tp_src INTEGER,
+            ip_dst TEXT,
+            tp_dst INTEGER,
+            ip_proto INTEGER,
+            icmp_code INTEGER,
+            icmp_type INTEGER,
+            flow_duration_sec INTEGER,
+            flow_duration_nsec INTEGER,
+            idle_timeout INTEGER,
+            hard_timeout INTEGER,
+            flags INTEGER,
+            packet_count INTEGER,
+            byte_count INTEGER,
+            packet_count_per_second REAL,
+            packet_count_per_nsecond REAL,
+            byte_count_per_second REAL,
+            byte_count_per_nsecond REAL,
             prediction_score REAL,
             label BOOLEAN
         )
@@ -91,36 +113,71 @@ class ControllerAPI(app_manager.RyuApp):
             if 'prediction_score' in columns:
                 cursor.execute("""
                 INSERT INTO flows (
-                    time, dpid, in_port, eth_src, eth_dst, packets, bytes, duration_sec, prediction_score, label
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    timestamp, datapath_id, flow_id, ip_src, tp_src, ip_dst, tp_dst,
+                    ip_proto, icmp_code, icmp_type, flow_duration_sec, flow_duration_nsec,
+                    idle_timeout, hard_timeout, flags, packet_count, byte_count,
+                    packet_count_per_second, packet_count_per_nsecond,
+                    byte_count_per_second, byte_count_per_nsecond,
+                    prediction_score, label
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    row.get("time", time.time()),
-                    int(row["dpid"]),
-                    int(row["in_port"]),
-                    row["eth_src"],
-                    row["eth_dst"],
-                    packets,
-                    bytes,
-                    duration_sec,
+                    safe_float(row.get("timestamp", time.time())),
+                    safe_int(row.get("datapath_id")),
+                    str(row.get("flow_id", "")),
+                    str(row.get("ip_src", "")),
+                    safe_int(row.get("tp_src")),
+                    str(row.get("ip_dst", "")),
+                    safe_int(row.get("tp_dst")),
+                    safe_int(row.get("ip_proto")),
+                    safe_int(row.get("icmp_code")),
+                    safe_int(row.get("icmp_type")),
+                    safe_int(row.get("flow_duration_sec")),
+                    safe_int(row.get("flow_duration_nsec")),
+                    safe_int(row.get("idle_timeout")),
+                    safe_int(row.get("hard_timeout")),
+                    safe_int(row.get("flags")),
+                    safe_int(row.get("packet_count")),
+                    safe_int(row.get("byte_count")),
+                    safe_float(row.get("packet_count_per_second")),
+                    safe_float(row.get("packet_count_per_nsecond")),
+                    safe_float(row.get("byte_count_per_second")),
+                    safe_float(row.get("byte_count_per_nsecond")),
                     float(prediction_score),
                     1 if label else 0
             ))
             else:
                 cursor.execute("""
                 INSERT INTO flows (
-                    time, dpid, in_port, eth_src, eth_dst, packets, bytes, duration_sec, label
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    timestamp, datapath_id, flow_id, ip_src, tp_src, ip_dst, tp_dst,
+                    ip_proto, icmp_code, icmp_type, flow_duration_sec, flow_duration_nsec,
+                    idle_timeout, hard_timeout, flags, packet_count, byte_count,
+                    packet_count_per_second, packet_count_per_nsecond,
+                    byte_count_per_second, byte_count_per_nsecond, label
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    row.get("time", time.time()),
-                    int(row["dpid"]),
-                    int(row["in_port"]),
-                    row["eth_src"],
-                    row["eth_dst"],
-                    packets,
-                    bytes,
-                    duration_sec,
-                    1 if label else 0
-                ))
+                safe_float(row.get("timestamp", time.time())),
+                safe_int(row.get("datapath_id")),
+                str(row.get("flow_id", "")),
+                str(row.get("ip_src", "")),
+                safe_int(row.get("tp_src")),
+                str(row.get("ip_dst", "")),
+                safe_int(row.get("tp_dst")),
+                safe_int(row.get("ip_proto")),
+                safe_int(row.get("icmp_code")),
+                safe_int(row.get("icmp_type")),
+                safe_int(row.get("flow_duration_sec")),
+                safe_int(row.get("flow_duration_nsec")),
+                safe_int(row.get("idle_timeout")),
+                safe_int(row.get("hard_timeout")),
+                safe_int(row.get("flags")),
+                safe_int(row.get("packet_count")),
+                safe_int(row.get("byte_count")),
+                safe_float(row.get("packet_count_per_second")),
+                safe_float(row.get("packet_count_per_nsecond")),
+                safe_float(row.get("byte_count_per_second")),
+                safe_float(row.get("byte_count_per_nsecond")),
+                1 if label else 0
+            ))
 
             conn.commit()
             conn.close()
@@ -140,7 +197,7 @@ class ControllerAPI(app_manager.RyuApp):
         self.logger.info("Loading bundled models from pickle...")
         def load_bundle(name):
             try:
-                with open("models/{}_model_bundle.pkl".format(name), "rb") as f:
+                with open("mdls/{}_model_bundle.pkl".format(name), "rb") as f:
                     return pickle.load(f)
             except Exception as e:
                 self.logger.error("Erro ao carregar modelo {}: {}".format(name, e))
@@ -154,7 +211,7 @@ class ControllerAPI(app_manager.RyuApp):
         }
         
         for model_name, file_name in model_files.items():
-            model_path = "models/{}_model_bundle.pkl".format(file_name)
+            model_path = "mdls/{}_model_bundle.pkl".format(file_name)
             if os.path.exists(model_path):
                 model = load_bundle(file_name)
                 if model is not None:
@@ -165,8 +222,12 @@ class ControllerAPI(app_manager.RyuApp):
 
     def _initialize_csv(self):
         df = pd.DataFrame(columns=[
-            'time', 'dpid', 'in_port', 'eth_src', 'eth_dst',
-            'packets', 'bytes', 'duration_sec'
+            'timestamp', 'datapath_id', 'flow_id', 'ip_src', 'tp_src', 
+            'ip_dst', 'tp_dst', 'ip_proto', 'icmp_code', 'icmp_type',
+            'flow_duration_sec', 'flow_duration_nsec', 'idle_timeout',
+            'hard_timeout', 'flags', 'packet_count', 'byte_count',
+            'packet_count_per_second', 'packet_count_per_nsecond',
+            'byte_count_per_second', 'byte_count_per_nsecond'
         ])
         df.to_csv(self.filename, index=False)
 
@@ -191,48 +252,87 @@ class ControllerAPI(app_manager.RyuApp):
 
             for stat in flow_stats:
                 match = stat.get('match', {})
-                eth_src = match.get('dl_src', 'NULL')
-                eth_dst = match.get('dl_dst', 'NULL')
-                in_port = match.get('in_port', 'NULL')
-                packets = stat.get('packet_count', 0)
-                bytes_count = stat.get('byte_count', 0)
+                ip_src = match.get('ipv4_src', match.get('nw_src', '0.0.0.0'))
+                ip_dst = match.get('ipv4_dst', match.get('nw_dst', '0.0.0.0'))
+                tp_src = match.get('tcp_src', match.get('udp_src', match.get('tp_src', 0)))
+                tp_dst = match.get('tcp_dst', match.get('udp_dst', match.get('tp_dst', 0)))
+                ip_proto = match.get('ip_proto', match.get('nw_proto', 0))
+                icmp_code = match.get('icmpv4_code', match.get('icmp_code', 0))
+                icmp_type = match.get('icmpv4_type', match.get('icmp_type', 0))
+                in_port = match.get('in_port', 0)
+
+                packet_count = stat.get('packet_count', 0)
+                byte_count = stat.get('byte_count', 0)
                 duration_sec = stat.get('duration_sec', 0)
+                duration_nsec = stat.get('duration_nsec', 0)
+                idle_timeout = stat.get('idle_timeout', 0)
+                hard_timeout = stat.get('hard_timeout', 0)
+                flags = stat.get('flags', 0)
+                priority = stat.get('priority', 0)
 
-                packets_per_sec = packets / duration_sec if duration_sec > 0 else 0
-                bytes_per_sec = bytes_count / duration_sec if duration_sec > 0 else 0
-
-                if packets_per_sec > 10000:  # DDoS claro
-                    self.logger.warning("ATAQUE VOLUMÉTRICO DETECTADO: {} pps".format(packets_per_sec))
-                    datapath = self.datapaths.get(dpid)
-                    if datapath:
-                        self.block_traffic_immediate(datapath, eth_src, eth_dst, in_port)
-                    continue
-
-                if packets <= 10 and bytes_count <= 1000:
+                if packet_count <= 10 and byte_count <= 1000:
                     self.logger.debug("Ignorando tráfego de controle")
                     continue
 
-                if packets == 0 or bytes_count == 0:
+                if packet_count == 0 or byte_count == 0:
                     continue
 
                 if duration_sec < 1:
                     self.logger.debug("Ignorando fluxo efêmero (duration < 1s)")
                     continue
 
-                if packets >= 10 and packets <= 1000:
-                    self.logger.info("Flow sample: packets={}, bytes={}, duration={}, eth_src={}, eth_dst={}".format(
-                        packets, bytes_count, duration_sec, eth_src, eth_dst
+                total_duration_sec = duration_sec + (duration_nsec / 1e9)
+
+                if total_duration_sec > 0:
+                    packet_count_per_second = packet_count / total_duration_sec
+                    byte_count_per_second = byte_count / total_duration_sec
+                else:
+                    packet_count_per_second = 0
+                    byte_count_per_second = 0
+                
+                total_duration_nsec = (duration_sec * 1e9) + duration_nsec
+                if total_duration_nsec > 0:
+                    packet_count_per_nsecond = packet_count / total_duration_nsec
+                    byte_count_per_nsecond = byte_count / total_duration_nsec
+                else:
+                    packet_count_per_nsecond = 0
+                    byte_count_per_nsecond = 0
+
+                # Detecção volumétrica imediata
+                if packet_count_per_second > 10000:
+                    self.logger.warning("ATAQUE VOLUMÉTRICO DETECTADO: {} pps".format(packet_count_per_second))
+                    # Bloquear imediatamente
+                    continue
+                
+                flow_id = "{}{}{}{}{}".format(ip_src, tp_src, ip_dst, tp_dst, ip_proto)
+
+                if packet_count >= 10 and packet_count <= 1000:
+                    self.logger.info("Flow sample: packets={}, bytes={}, duration_sec={}, ip_src={}, ip_dst={}".format(
+                        packet_count, byte_count, duration_sec, ip_src, ip_dst
                     ))
 
                 rows.append({
-                    'time': current_time,
-                    'dpid': dpid,
-                    'in_port': in_port,
-                    'eth_src': eth_src,
-                    'eth_dst': eth_dst,
-                    'packets': packets,
-                    'bytes': bytes_count,
-                    'duration_sec': duration_sec
+                    'timestamp': current_time,
+                    'datapath_id': dpid,
+                    'flow_id': flow_id,
+                    'ip_src': ip_src,
+                    'tp_src': tp_src,
+                    'ip_dst': ip_dst,
+                    'tp_dst': tp_dst,
+                    'ip_proto': ip_proto,
+                    'icmp_code': icmp_code,
+                    'icmp_type': icmp_type,
+                    'flow_duration_sec': duration_sec,
+                    'flow_duration_nsec': duration_nsec,
+                    'idle_timeout': idle_timeout,
+                    'hard_timeout': hard_timeout,
+                    'flags': flags,
+                    'packet_count': packet_count,
+                    'byte_count': byte_count,
+                    'packet_count_per_second': packet_count_per_second,
+                    'packet_count_per_nsecond': packet_count_per_nsecond,
+                    'byte_count_per_second': byte_count_per_second,
+                    'byte_count_per_nsecond': byte_count_per_nsecond
                 })
 
             if rows:
@@ -333,29 +433,19 @@ class ControllerAPI(app_manager.RyuApp):
                 if i >= len(df):
                     break
                     
-                row = df_unprocessed.iloc[i].copy()
-
-                row["packets"] = int(row["packets"]) if pd.notna(row["packets"]) else 0
-                row["bytes"] = int(row["bytes"]) if pd.notna(row["bytes"]) else 0
-                row["duration_sec"] = int(row["duration_sec"]) if pd.notna(row["duration_sec"]) else 0
-                row["dpid"] = int(row["dpid"]) if pd.notna(row["dpid"]) else 0
-                row["in_port"] = int(row["in_port"]) if pd.notna(row["in_port"]) else 0
-                row["eth_src"] = row["eth_src"] if pd.notna(row["eth_src"]) else "UNKNOWN"
-                row["eth_dst"] = row["eth_dst"] if pd.notna(row["eth_dst"]) else "UNKNOWN"
-                row["time"] = float(row["time"]) if pd.notna(row["time"]) else time.time()
-
+                row = df_unprocessed.iloc[i].to_dict()
                 confidence_score = self._calculate_confidence_score(predictions, i) if len(predictions) > 1 else float(pred)
-                
+
                 self.save_flow(row, bool(pred), confidence_score)
                 
-                if pred == 1 and row["eth_src"] != "UNKNOWN" and row["eth_dst"] != "UNKNOWN":
+                if pred == 1:
                     blocked_count += 1
                     self.logger.warning("FLUXO MALICIOSO DETECTADO (confiança: {:.3f}): dpid={}, src={}, dst={}, packets={}, bytes={}".format(
-                        confidence_score, row['dpid'], row['eth_src'], row['eth_dst'], row['packets'], row['bytes']
+                        confidence_score, row['datapath_id'], row['ip_src'], row['ip_dst'], row['packet_count'], row['bytes']
                     ))
-                    self.block_traffic(row['dpid'], row['eth_src'], row['eth_dst'], row['in_port'])
+                    self.block_traffic(row['datapath_id'], row['ip_src'], row['ip_dst'], row.get('in_port', 0))
                 else:
-                    self.logger.debug("Fluxo benigno: packets={}, bytes={}".format(row['packets'], row['bytes']))
+                    self.logger.debug("Fluxo benigno: packets={}, bytes={}".format(row['packet_count'], row['byte_count']))
 
             self.last_processed_time = processing_start_time
 
