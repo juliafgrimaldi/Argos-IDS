@@ -248,8 +248,8 @@ class ControllerAPI(app_manager.RyuApp):
                 # Extrair informações do match
                 ip_src = match.get('ipv4_src', match.get('nw_src', '0.0.0.0'))
                 ip_dst = match.get('ipv4_dst', match.get('nw_dst', '0.0.0.0'))
-                tp_src = match.get('tcp_src', match.get('udp_src', match.get('tp_src', 0)))
-                tp_dst = match.get('tcp_dst', match.get('udp_dst', match.get('tp_dst', 0)))
+                tp_src = match.get('tcp_src', match.get('tcp_src', match.get('tp_src', 0)))
+                tp_dst = match.get('tcp_dst', match.get('tcp_dst', match.get('tp_dst', 0)))
                 ip_proto = match.get('ip_proto', match.get('nw_proto', 0))
                 icmp_code = match.get('icmpv4_code', match.get('icmp_code', 0))
                 icmp_type = match.get('icmpv4_type', match.get('icmp_type', 0))
