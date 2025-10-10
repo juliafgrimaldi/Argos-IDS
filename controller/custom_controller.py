@@ -9,7 +9,6 @@ from ryu.lib import hub
 import time
 from collections import defaultdict
 
-
 class ControllerAPI(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
 
@@ -23,8 +22,8 @@ class ControllerAPI(app_manager.RyuApp):
             'byte_count': 0,
             'datapath_id': None
         })
-        self.report_interval = 10   
-        self.idle_forget = 60       
+        self.report_interval = 10  
+        self.idle_forget = 60      
         self.monitor_thread = hub.spawn(self._monitor)
         self.logger.info("Controller iniciado (OF1.3): NORMAL + espelho IP/ARP + coleta L3/L4")
 
@@ -49,7 +48,7 @@ class ControllerAPI(app_manager.RyuApp):
         inst_norm = [p.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions_norm)]
         dp.send_msg(p.OFPFlowMod(datapath=dp, priority=0, match=match_all, instructions=inst_norm))
 
-        match_ip = p.OFPMatch(eth_type=ether_types.ETH_TYPE_IP)  
+        match_ip = p.OFPMatch(eth_type=ether_types.ETH_TYPE_IP)  # 0x0800
         actions_mirror_ip = [
             p.OFPActionOutput(ofp.OFPP_NORMAL),
             p.OFPActionOutput(ofp.OFPP_CONTROLLER, ofp.OFPCML_NO_BUFFER),
@@ -71,12 +70,12 @@ class ControllerAPI(app_manager.RyuApp):
     def _packet_in_handler(self, ev):
         msg = ev.msg
         dp = msg.datapath
-        in_port = msg.match.get('in_port') 
+        in_port = msg.match.get('in_port')  # Usando o in_port no match
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
         if not eth or eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            return  
+            return  # Ignora pacotes LLDP
 
         eth_src = eth.src
         eth_dst = eth.dst
@@ -87,8 +86,7 @@ class ControllerAPI(app_manager.RyuApp):
             ip_dst = ip_pkt.dst
             ip_proto = ip_pkt.proto  
 
-            tp_src = 0
-            tp_dst = 0
+            tp_src = tp_dst = 0
             t = pkt.get_protocol(tcp.tcp)
             u = pkt.get_protocol(udp.udp)
             ic = pkt.get_protocol(icmp.icmp)
@@ -97,7 +95,7 @@ class ControllerAPI(app_manager.RyuApp):
             elif u:
                 tp_src, tp_dst = u.src_port, u.dst_port
             elif ic:
-                tp_src, tp_dst = ic.type, ic.code
+                tp_src, tp_dst = ic.type, ic.code  # ICMP Type e Code
 
             key = (ip_src, ip_dst, ip_proto, tp_src, tp_dst)
             st = self.flow_stats[key]
@@ -105,12 +103,48 @@ class ControllerAPI(app_manager.RyuApp):
             if st['first_seen'] == 0.0:
                 st['first_seen'] = now
                 st['datapath_id'] = dp.id
-            st['last_seen'] += 0  
             st['last_seen'] = now
             st['packet_count'] += 1
             st['byte_count'] += len(msg.data)
 
             if st['packet_count'] % 100 == 0:
-                self.logger.info("Flow %s:%s -> %s:%s proto=%s | pkts=%d (in_port=%s mac %s→%s)",
+                self.logger.info("Flow %s:%s -> %s:%s proto=%s | pkts=%d (in_port=%s mac %s→%s) ",
                                  ip_src, tp_src, ip_dst, tp_dst, ip_proto,
                                  st['packet_count'], in_port, eth_src, eth_dst)
+
+    def _monitor(self):
+        """Thread que realiza o monitoramento e relatórios periódicos"""
+        while True:
+            hub.sleep(self.report_interval)
+            self._report_and_cleanup()
+
+    def _report_and_cleanup(self):
+        """Relatório de fluxos e limpeza dos fluxos inativos"""
+        if not self.flow_stats:
+            self.logger.debug("Sem fluxos no momento.")
+            return
+
+        now = time.time()
+        items = []
+        for k, v in self.flow_stats.items():
+            dur = max(v['last_seen'] - v['first_seen'], 1e-6)
+            pps = v['packet_count'] / dur
+            bps = v['byte_count'] / dur
+            items.append((k, v['packet_count'], v['byte_count'], pps, bps, v['datapath_id'], v['last_seen']))
+
+        items.sort(key=lambda x: x[2], reverse=True)  # Ordena pelos bytes
+        top = items[:10]
+
+        self.logger.info("=== TOP FLOWS (últimos ~%ds) ===", self.report_interval)
+        for (k, pkts, bytes_, pps, bps, dpid, last_seen) in top:
+            ip_src, ip_dst, proto, tp_src, tp_dst = k
+            self.logger.info("DP=%s %s:%s -> %s:%s proto=%s | pkts=%d bytes=%d | pps=%.2f bps=%.2f",
+                             dpid, ip_src, tp_src, ip_dst, tp_dst, proto, pkts, bytes_, pps, bps)
+
+        removed = 0
+        for k in list(self.flow_stats.keys()):
+            if now - self.flow_stats[k]['last_seen'] > self.idle_forget:
+                del self.flow_stats[k]
+                removed += 1
+        if removed:
+            self.logger.debug("Removidos %d fluxos inativos (> %ds).", removed, self.idle_forget)
