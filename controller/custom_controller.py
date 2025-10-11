@@ -1,3 +1,8 @@
+"""
+Simple Switch 13 modificado para capturar dados Layer 3
+Baseado no simple_switch_13.py oficial do Ryu
+"""
+
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
@@ -20,6 +25,12 @@ class SimpleSwitch13L3(app_manager.RyuApp):
         # Tabela MAC (igual ao simple_switch_13 original)
         self.mac_to_port = {}
         
+        # CONFIGURAÇÃO: Tipo de flow a instalar
+        # 'L2' - apenas MAC (padrão simple_switch)
+        # 'L3' - IP src/dst
+        # 'L4' - IP + portas TCP/UDP
+        self.flow_match_type = 'L3'  # Altere aqui: 'L2', 'L3', ou 'L4'
+        
         # NOVO: Estatísticas Layer 3
         self.flow_stats = defaultdict(lambda: {
             'first_seen': 0.0,
@@ -38,7 +49,7 @@ class SimpleSwitch13L3(app_manager.RyuApp):
         self.report_interval = 30  # Relatório a cada 30s
         self.monitor_thread = hub.spawn(self._monitor)
         
-        self.logger.info("Simple Switch 13 L3 iniciado")
+        self.logger.info("Simple Switch 13 L3 iniciado (flow_match_type=%s)", self.flow_match_type)
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
@@ -75,6 +86,11 @@ class SimpleSwitch13L3(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
+        """
+        Handler modificado do simple_switch_13:
+        - Mantém funcionalidade de learning switch
+        - ADICIONA: Captura de dados Layer 3
+        """
         if ev.msg.msg_len < ev.msg.total_len:
             self.logger.debug("packet truncated: only %s of %s bytes",
                             ev.msg.msg_len, ev.msg.total_len)
@@ -98,6 +114,8 @@ class SimpleSwitch13L3(app_manager.RyuApp):
         dpid = format(datapath.id, "d").zfill(16)
         self.mac_to_port.setdefault(dpid, {})
 
+        # ========== PARTE ORIGINAL: MAC LEARNING ==========
+        # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
 
         if dst in self.mac_to_port[dpid]:
@@ -109,10 +127,54 @@ class SimpleSwitch13L3(app_manager.RyuApp):
 
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+            match = None
             
-            # verify if we have a valid buffer_id, if yes avoid to send both
-            # flow_mod & packet_out
+            # Extrair informações IP se disponível
+            ip_pkt_temp = pkt.get_protocol(ipv4.ipv4)
+            
+            if ip_pkt_temp and self.flow_match_type in ['L3', 'L4']:
+                # Base: Flow Layer 3 (com IPs)
+                match_fields = {
+                    'in_port': in_port,
+                    'eth_type': ether_types.ETH_TYPE_IP,
+                    'ipv4_src': ip_pkt_temp.src,
+                    'ipv4_dst': ip_pkt_temp.dst
+                }
+                
+                # Se L4, adicionar portas TCP/UDP
+                if self.flow_match_type == 'L4':
+                    tcp_pkt_temp = pkt.get_protocol(tcp.tcp)
+                    udp_pkt_temp = pkt.get_protocol(udp.udp)
+                    
+                    if tcp_pkt_temp:
+                        match_fields['ip_proto'] = 6  # TCP
+                        match_fields['tcp_src'] = tcp_pkt_temp.src_port
+                        match_fields['tcp_dst'] = tcp_pkt_temp.dst_port
+                        self.logger.debug("Installing L4 flow: %s:%d -> %s:%d [TCP]",
+                                        ip_pkt_temp.src, tcp_pkt_temp.src_port,
+                                        ip_pkt_temp.dst, tcp_pkt_temp.dst_port)
+                    elif udp_pkt_temp:
+                        match_fields['ip_proto'] = 17  # UDP
+                        match_fields['udp_src'] = udp_pkt_temp.src_port
+                        match_fields['udp_dst'] = udp_pkt_temp.dst_port
+                        self.logger.debug("Installing L4 flow: %s:%d -> %s:%d [UDP]",
+                                        ip_pkt_temp.src, udp_pkt_temp.src_port,
+                                        ip_pkt_temp.dst, udp_pkt_temp.dst_port)
+                    else:
+                        # ICMP ou outro protocolo - apenas L3
+                        self.logger.debug("Installing L3 flow: %s -> %s [proto=%d]",
+                                        ip_pkt_temp.src, ip_pkt_temp.dst, ip_pkt_temp.proto)
+                else:
+                    self.logger.debug("Installing L3 flow: %s -> %s",
+                                    ip_pkt_temp.src, ip_pkt_temp.dst)
+                
+                match = parser.OFPMatch(**match_fields)
+            else:
+                # Flow Layer 2 (apenas MACs) - fallback
+                match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+                self.logger.debug("Installing L2 flow: %s -> %s", src, dst)
+            
+            # Install flow
             if msg.buffer_id != ofproto.OFP_NO_BUFFER:
                 self.add_flow(datapath, 1, match, actions, msg.buffer_id)
                 return
@@ -179,6 +241,7 @@ class SimpleSwitch13L3(app_manager.RyuApp):
                                ip_src, tp_src, ip_dst, tp_dst, proto_name,
                                st['packet_count'], st['byte_count'], pps)
         
+        # ========== PARTE ORIGINAL: PACKET OUT ==========
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
