@@ -45,10 +45,11 @@ class ControllerAPI(app_manager.RyuApp):
             self.blocked_sources = {}  
             self.block_cooldown = 300 
             
-            self.start_time = time.time()
-            self.last_processed_time = self.start_time
+            self.last_processed_time = time.time()
+            self.start_time = self.last_processed_time
             self.logger.info("IDS iniciado em timestamp: {}".format(self.start_time))
 
+            self.total_flows_processed = 0
             self.classification_threshold = 0.5
             
             self.accuracies = {
@@ -267,35 +268,26 @@ class ControllerAPI(app_manager.RyuApp):
                 hard_timeout = stat.get('hard_timeout', 0)
                 flags = stat.get('flags', 0)
                 
-                # Ignorar fluxos de controle
-                if packet_count <= 10 and byte_count <= 1000:
-                    self.logger.debug("Ignorando tráfego de controle")
-                    continue
 
                 if packet_count == 0 or byte_count == 0:
                     continue
 
-                if duration_sec < 1:
-                    self.logger.debug("Ignorando fluxo efêmero (duration < 1s)")
-                    continue
 
                 # Calcular métricas por segundo e nanosegundo
                 total_duration_sec = duration_sec + (duration_nsec / 1e9)
                 
-                if total_duration_sec > 0:
-                    packet_count_per_second = packet_count / total_duration_sec
-                    byte_count_per_second = byte_count / total_duration_sec
-                else:
-                    packet_count_per_second = 0
-                    byte_count_per_second = 0
-                
+                if total_duration_sec < 0.001:
+                    total_duration_sec = 0.001
+                packet_count_per_second = packet_count / total_duration_sec
+                byte_count_per_second = byte_count / total_duration_sec
                 total_duration_nsec = (duration_sec * 1e9) + duration_nsec
-                if total_duration_nsec > 0:
-                    packet_count_per_nsecond = packet_count / total_duration_nsec
-                    byte_count_per_nsecond = byte_count / total_duration_nsec
-                else:
-                    packet_count_per_nsecond = 0
-                    byte_count_per_nsecond = 0
+
+                if total_duration_nsec < 1000:
+                    total_duration_nsec = 1000
+                
+                packet_count_per_nsecond = packet_count / total_duration_nsec
+                byte_count_per_nsecond = byte_count / total_duration_nsec
+                
 
                 # Detecção volumétrica imediata
                 if packet_count_per_second > 10000:
@@ -377,8 +369,12 @@ class ControllerAPI(app_manager.RyuApp):
 
             # Verificar qual coluna de tempo existe no DataFrame
             time_column = 'timestamp' if 'timestamp' in df.columns else 'time'
+
+            self.logger.info("DEBUG: last_processed_time={:.2f}, max timestamp no CSV={:.2f}".format(
+                self.last_processed_time, df[time_column].max() if not df.empty else 0
+            ))
             
-            df_unprocessed = df[df[time_column] > self.last_processed_time].copy()
+            df_unprocessed = df[df[time_column] >= self.last_processed_time].copy()
             if df_unprocessed.empty:
                 self.logger.info("Nenhum tráfego novo desde a inicialização")
                 return
@@ -467,7 +463,13 @@ class ControllerAPI(app_manager.RyuApp):
                 else:
                     self.logger.debug("Fluxo benigno: packets={}, bytes={}".format(row['packet_count'], row['byte_count']))
 
-            self.last_processed_time = processing_start_time
+            new_last_time = df_unprocessed[time_column].max()
+            self.total_flows_processed += len(df_unprocessed)
+            
+            self.logger.info("Atualizando last_processed_time: {:.2f} -> {:.2f} (total processado: {})".format(
+                self.last_processed_time, new_last_time, self.total_flows_processed
+            ))
+            self.last_processed_time = new_last_time
 
             if blocked_count > 0:
                 self.logger.warning("BLOQUEIOS NESTE CICLO: {}".format(blocked_count))
