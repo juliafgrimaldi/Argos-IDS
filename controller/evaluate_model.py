@@ -2,6 +2,7 @@ from sklearn.metrics import accuracy_score
 import pandas as pd
 import numpy as np
 import pickle
+import os
 from ryu.base import app_manager
 
 class ControllerAPI(app_manager.RyuApp):
@@ -22,10 +23,10 @@ class ControllerAPI(app_manager.RyuApp):
         try:
             y_pred = model.predict(X_test)
             accuracy = accuracy_score(y_test, y_pred)
-            self.logger.info(f"Modelo {model_name} avaliado com precisao: {accuracy:.3f}")
+            self.logger.info("Modelo {} avaliado com precisao: {}".format(model_name, accuracy:.3f))
             self.accuracies[model_name] = accuracy
         except Exception as e:
-            self.logger.error(f"Erro na avaliacao do modelo {model_name}: {e}")
+            self.logger.error("Erro na avaliacao do modelo {}: {}".format(model_name, e))
 
     def evaluate_all_models(self, test_data):
         X_test = test_data.drop(columns=['label'])
@@ -47,11 +48,11 @@ class ControllerAPI(app_manager.RyuApp):
         }
         
         for model_name, file_name in model_files.items():
-            model_path = f"mdls/{file_name}_model_bundle.pkl"
+            model_path = "mdls/{}_model_bundle.pkl".format(file_name)
             if os.path.exists(model_path):
                 with open(model_path, "rb") as f:
                     model = pickle.load(f)
                     self.models[model_name] = model
-                    self.logger.info(f"Modelo {model_name} carregado com sucesso")
+                    self.logger.info("Modelo {} carregado com sucesso".format(model_name))
             else:
-                self.logger.warning(f"Arquivo de modelo nao encontrado: {model_path}")
+                self.logger.warning("Arquivo de modelo nao encontrado: {}".format(model_path))
