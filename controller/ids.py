@@ -44,12 +44,10 @@ class ControllerAPI(app_manager.RyuApp):
             self.blocked_sources = {}  
             self.block_cooldown = 300 
             
-            # FIX 1: Usar timestamp atual como referência
             self.last_processed_time = time.time()
             self.start_time = self.last_processed_time
             self.logger.info("IDS iniciado em timestamp: {}".format(self.start_time))
             
-            # FIX 2: Contador de fluxos processados para debug
             self.total_flows_processed = 0
 
             self.classification_threshold = 0.5
@@ -174,9 +172,35 @@ class ControllerAPI(app_manager.RyuApp):
         def load_bundle(name):
             try:
                 with open("mdls/{}_model_bundle.pkl".format(name), "rb") as f:
-                    return pickle.load(f)
+                    bundle = pickle.load(f)
+                    
+                # VALIDAR se o modelo está treinado
+                if isinstance(bundle, dict):
+                    model = bundle.get('model')
+                    if model is not None:
+                        # Verificar se tem o atributo que indica treinamento
+                        if hasattr(model, 'classes_') or hasattr(model, 'n_features_in_'):
+                            self.logger.info("Modelo {} validado - está treinado".format(name))
+                            return bundle
+                        else:
+                            self.logger.error("Modelo {} NÃO ESTÁ TREINADO!".format(name))
+                            return None
+                    else:
+                        self.logger.error("Bundle {} não contém 'model'".format(name))
+                        return None
+                else:
+                    # Se não for dict, pode ser modelo direto
+                    if hasattr(bundle, 'classes_') or hasattr(bundle, 'n_features_in_'):
+                        self.logger.info("Modelo {} (formato direto) validado".format(name))
+                        return {'model': bundle}
+                    else:
+                        self.logger.error("Modelo {} não está no formato correto".format(name))
+                        return None
+                        
             except Exception as e:
                 self.logger.error("Erro ao carregar modelo {}: {}".format(name, e))
+                import traceback
+                self.logger.error("Traceback: {}".format(traceback.format_exc()))
                 return None
 
         model_files = {
@@ -186,15 +210,25 @@ class ControllerAPI(app_manager.RyuApp):
             'svm': 'svm'
         }
         
+        loaded_count = 0
         for model_name, file_name in model_files.items():
             model_path = "mdls/{}_model_bundle.pkl".format(file_name)
             if os.path.exists(model_path):
+                self.logger.info("Carregando: {}".format(model_path))
                 model = load_bundle(file_name)
                 if model is not None:
                     self.models[model_name] = model
-                    self.logger.info("Modelo {} carregado com sucesso".format(model_name))
+                    loaded_count += 1
+                    self.logger.info("✓ Modelo {} carregado e validado".format(model_name))
+                else:
+                    self.logger.error("✗ Modelo {} FALHOU na validação".format(model_name))
             else:
-                self.logger.warning("Arquivo de modelo não encontrado: {}".format(model_path))
+                self.logger.warning("Arquivo não encontrado: {}".format(model_path))
+        
+        if loaded_count == 0:
+            self.logger.error("CRÍTICO: NENHUM MODELO VÁLIDO CARREGADO!")
+        else:
+            self.logger.info("Total de modelos válidos carregados: {}".format(loaded_count))
 
     def _initialize_csv(self):
         columns = [
@@ -237,7 +271,6 @@ class ControllerAPI(app_manager.RyuApp):
             response.raise_for_status()
             flow_stats = response.json().get(str(dpid), [])
             
-            # DEBUG: Mostrar quantos fluxos a API retornou
             self.logger.info("=== API RETORNOU {} FLUXOS BRUTOS ===".format(len(flow_stats)))
             
             rows = []
@@ -268,18 +301,13 @@ class ControllerAPI(app_manager.RyuApp):
                 hard_timeout = stat.get('hard_timeout', 0)
                 flags = stat.get('flags', 0)
                 
-                # FIX 3: Remover filtro excessivo de tráfego de controle
-                # Apenas ignorar fluxos completamente vazios
+             
                 if packet_count == 0 or byte_count == 0:
+                    flows_filtered_empty += 1
                     continue
 
-                # FIX 4: Não ignorar fluxos efêmeros - DDoS pode ter duration baixo!
-                # Remover: if duration_sec < 1: continue
-
-                # Calcular métricas
                 total_duration_sec = duration_sec + (duration_nsec / 1e9)
                 
-                # FIX 5: Evitar divisão por zero com valor mínimo
                 if total_duration_sec < 0.001:
                     total_duration_sec = 0.001
                 
@@ -293,10 +321,10 @@ class ControllerAPI(app_manager.RyuApp):
                 packet_count_per_nsecond = packet_count / total_duration_nsec
                 byte_count_per_nsecond = byte_count / total_duration_nsec
 
-                # Detecção volumétrica
                 if packet_count_per_second > 10000:
                     self.logger.warning("ATAQUE VOLUMÉTRICO DETECTADO: {} pps".format(packet_count_per_second))
                     self.block_traffic(dpid, ip_src, ip_dst, in_port)
+                    flows_filtered_volumetric += 1
                     continue
 
                 flow_id = "{}{}{}{}{}".format(ip_src, tp_src, ip_dst, tp_dst, ip_proto)
@@ -327,9 +355,16 @@ class ControllerAPI(app_manager.RyuApp):
 
             if rows:
                 df_to_save = pd.DataFrame(rows)
-                self.logger.info("✓ Coletados {} flows ({} com IPs válidos) - Timestamp: {:.2f}".format(
-                    len(rows), flows_with_ip, current_time
+                self.logger.info("=== RESUMO DA COLETA ===")
+                self.logger.info("API retornou: {} fluxos".format(len(flow_stats)))
+                self.logger.info("Filtrados (vazios): {}".format(flows_filtered_empty))
+                self.logger.info("Filtrados (volumétricos): {}".format(flows_filtered_volumetric))
+                self.logger.info("Flows com IPs válidos: {}".format(flows_with_ip))
+                self.logger.info("✓ SALVOS NO CSV: {} flows - Timestamp: {:.2f}".format(
+                    len(rows), current_time
                 ))
+                self.logger.info("========================")
+                
                 file_exists = os.path.exists(self.filename)
                 
                 if file_exists:
@@ -344,6 +379,12 @@ class ControllerAPI(app_manager.RyuApp):
                         self.logger.warning("Erro ao verificar CSV: {}".format(ex))
                 
                 df_to_save.to_csv(self.filename, mode='a', index=False, header=not file_exists)
+            else:
+                self.logger.warning("=== NENHUM FLUXO VÁLIDO PARA SALVAR ===")
+                self.logger.warning("API retornou: {} fluxos".format(len(flow_stats)))
+                self.logger.warning("Todos foram filtrados: vazios={}, volumétricos={}".format(
+                    flows_filtered_empty, flows_filtered_volumetric
+                ))
 
         except Exception as e:
             self.logger.error("Failed to collect stats for dpid {}: {}".format(dpid, e))
@@ -363,17 +404,17 @@ class ControllerAPI(app_manager.RyuApp):
 
             time_column = 'timestamp' if 'timestamp' in df.columns else 'time'
             
-            # FIX 6: Debug - mostrar range de timestamps
             self.logger.info("DEBUG: last_processed_time={:.2f}, max timestamp no CSV={:.2f}".format(
                 self.last_processed_time, df[time_column].max() if not df.empty else 0
             ))
             
-            # FIX 7: Usar >= ao invés de > para garantir que pega tudo
             df_unprocessed = df[df[time_column] >= self.last_processed_time].copy()
             
             if df_unprocessed.empty:
                 self.logger.info("Nenhum tráfego novo (last_processed={:.2f})".format(self.last_processed_time))
                 return
+
+            processing_start_time = time.time()
             
             self.logger.info("PROCESSANDO {} NOVOS FLUXOS (timestamps: {:.2f} a {:.2f})".format(
                 len(df_unprocessed),
@@ -393,6 +434,11 @@ class ControllerAPI(app_manager.RyuApp):
                 try:
                     self.logger.info("Executando predição com modelo: {}".format(name))
                     
+                    # Verificar se modelo está carregado corretamente
+                    if bundle is None:
+                        self.logger.error("Bundle do modelo {} está None!".format(name))
+                        continue
+                    
                     if name == 'knn':
                         pred, _ = predict_knn(bundle, temp_filename)
                     elif name == 'svm':
@@ -402,6 +448,7 @@ class ControllerAPI(app_manager.RyuApp):
                     elif name == 'random_forest':
                         pred, _ = predict_random_forest(bundle, temp_filename)
                     else:
+                        self.logger.warning("Modelo desconhecido: {}".format(name))
                         continue
                     
                     if pred is not None and len(pred) > 0:
@@ -463,15 +510,12 @@ class ControllerAPI(app_manager.RyuApp):
                     ))
                     self.block_traffic(row['datapath_id'], row['ip_src'], row['ip_dst'], 0)
 
-            # FIX 8: Atualizar last_processed_time DEPOIS de processar tudo
-            # Usar o maior timestamp processado
-            new_last_time = df_unprocessed[time_column].max()
+            self.last_processed_time = processing_start_time
             self.total_flows_processed += len(df_unprocessed)
             
-            self.logger.info("Atualizando last_processed_time: {:.2f} -> {:.2f} (total processado: {})".format(
-                self.last_processed_time, new_last_time, self.total_flows_processed
+            self.logger.info("Timestamp de processamento atualizado para: {:.2f} (total acumulado: {})".format(
+                self.last_processed_time, self.total_flows_processed
             ))
-            self.last_processed_time = new_last_time
 
             if blocked_count > 0:
                 self.logger.warning("BLOQUEIOS NESTE CICLO: {}".format(blocked_count))
