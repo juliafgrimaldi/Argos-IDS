@@ -27,7 +27,6 @@ class ControllerAPI(app_manager.RyuApp):
             self.block_url = "http://127.0.0.1:8080/stats/flowentry/add"
             self.filename = "./backend/traffic_predict.csv"
             
-            # Campos corretos do dataset
             self.numeric_columns = [
                 'flow_duration_sec', 'flow_duration_nsec', 'idle_timeout', 
                 'hard_timeout', 'flags', 'packet_count', 'byte_count',
@@ -45,11 +44,14 @@ class ControllerAPI(app_manager.RyuApp):
             self.blocked_sources = {}  
             self.block_cooldown = 300 
             
+            # FIX 1: Usar timestamp atual como referência
             self.last_processed_time = time.time()
             self.start_time = self.last_processed_time
             self.logger.info("IDS iniciado em timestamp: {}".format(self.start_time))
-
+            
+            # FIX 2: Contador de fluxos processados para debug
             self.total_flows_processed = 0
+
             self.classification_threshold = 0.5
             
             self.accuracies = {
@@ -102,14 +104,12 @@ class ControllerAPI(app_manager.RyuApp):
         conn.close()
 
     def _safe_int(self, val, default=0):
-        """Converte valor para int de forma segura"""
         try:
             return int(val) if pd.notna(val) and val == val else default
         except:
             return default
     
     def _safe_float(self, val, default=0.0):
-        """Converte valor para float de forma segura"""
         try:
             return float(val) if pd.notna(val) and val == val else default
         except:
@@ -197,7 +197,6 @@ class ControllerAPI(app_manager.RyuApp):
                 self.logger.warning("Arquivo de modelo não encontrado: {}".format(model_path))
 
     def _initialize_csv(self):
-        # Criar CSV com as colunas corretas do dataset
         columns = [
             'timestamp', 'datapath_id', 'flow_id', 'ip_src', 'tp_src', 
             'ip_dst', 'tp_dst', 'ip_proto', 'icmp_code', 'icmp_type',
@@ -207,11 +206,9 @@ class ControllerAPI(app_manager.RyuApp):
             'byte_count_per_second', 'byte_count_per_nsecond'
         ]
         
-        # Se o arquivo já existe, verificar se tem a estrutura correta
         if os.path.exists(self.filename):
             try:
                 existing_df = pd.read_csv(self.filename)
-                # Se tem 'time' mas não tem 'timestamp', renomear
                 if 'time' in existing_df.columns and 'timestamp' not in existing_df.columns:
                     existing_df.rename(columns={'time': 'timestamp'}, inplace=True)
                     existing_df.to_csv(self.filename, index=False)
@@ -220,7 +217,6 @@ class ControllerAPI(app_manager.RyuApp):
             except:
                 pass
         
-        # Criar novo arquivo
         df = pd.DataFrame(columns=columns)
         df.to_csv(self.filename, index=False)
 
@@ -240,14 +236,19 @@ class ControllerAPI(app_manager.RyuApp):
             response = requests.get("{}{}".format(self.api_url, dpid), timeout=10)
             response.raise_for_status()
             flow_stats = response.json().get(str(dpid), [])
+            
+            # DEBUG: Mostrar quantos fluxos a API retornou
+            self.logger.info("=== API RETORNOU {} FLUXOS BRUTOS ===".format(len(flow_stats)))
+            
             rows = []
             current_time = time.time()
             flows_with_ip = 0
+            flows_filtered_empty = 0
+            flows_filtered_volumetric = 0
 
             for stat in flow_stats:
                 match = stat.get('match', {})
                 
-                # Extrair informações do match
                 ip_src = match.get('ipv4_src', match.get('nw_src', '0.0.0.0'))
                 ip_dst = match.get('ipv4_dst', match.get('nw_dst', '0.0.0.0'))
                 if ip_src != '0.0.0.0' and ip_dst != '0.0.0.0':
@@ -259,7 +260,6 @@ class ControllerAPI(app_manager.RyuApp):
                 icmp_type = match.get('icmpv4_type', match.get('icmp_type', 0))
                 in_port = match.get('in_port', 0)
                 
-                # Estatísticas do fluxo
                 packet_count = stat.get('packet_count', 0)
                 byte_count = stat.get('byte_count', 0)
                 duration_sec = stat.get('duration_sec', 0)
@@ -268,40 +268,38 @@ class ControllerAPI(app_manager.RyuApp):
                 hard_timeout = stat.get('hard_timeout', 0)
                 flags = stat.get('flags', 0)
                 
-
+                # FIX 3: Remover filtro excessivo de tráfego de controle
+                # Apenas ignorar fluxos completamente vazios
                 if packet_count == 0 or byte_count == 0:
                     continue
 
+                # FIX 4: Não ignorar fluxos efêmeros - DDoS pode ter duration baixo!
+                # Remover: if duration_sec < 1: continue
 
-                # Calcular métricas por segundo e nanosegundo
+                # Calcular métricas
                 total_duration_sec = duration_sec + (duration_nsec / 1e9)
                 
+                # FIX 5: Evitar divisão por zero com valor mínimo
                 if total_duration_sec < 0.001:
                     total_duration_sec = 0.001
+                
                 packet_count_per_second = packet_count / total_duration_sec
                 byte_count_per_second = byte_count / total_duration_sec
+                
                 total_duration_nsec = (duration_sec * 1e9) + duration_nsec
-
                 if total_duration_nsec < 1000:
                     total_duration_nsec = 1000
-                
+                    
                 packet_count_per_nsecond = packet_count / total_duration_nsec
                 byte_count_per_nsecond = byte_count / total_duration_nsec
-                
 
-                # Detecção volumétrica imediata
+                # Detecção volumétrica
                 if packet_count_per_second > 10000:
                     self.logger.warning("ATAQUE VOLUMÉTRICO DETECTADO: {} pps".format(packet_count_per_second))
                     self.block_traffic(dpid, ip_src, ip_dst, in_port)
                     continue
 
-                # Criar flow_id único
                 flow_id = "{}{}{}{}{}".format(ip_src, tp_src, ip_dst, tp_dst, ip_proto)
-
-                if packet_count >= 10 and packet_count <= 1000:
-                    self.logger.info("Flow sample: packets={}, bytes={}, duration_sec={}, ip_src={}, ip_dst={}".format(
-                        packet_count, byte_count, duration_sec, ip_src, ip_dst
-                    ))
 
                 rows.append({
                     'timestamp': current_time,
@@ -312,7 +310,7 @@ class ControllerAPI(app_manager.RyuApp):
                     'ip_dst': ip_dst,
                     'tp_dst': tp_dst,
                     'ip_proto': ip_proto,
-                    'icmp_code': icmp_code,
+                    'icmc_code': icmp_code,
                     'icmp_type': icmp_type,
                     'flow_duration_sec': duration_sec,
                     'flow_duration_nsec': duration_nsec,
@@ -328,18 +326,15 @@ class ControllerAPI(app_manager.RyuApp):
                 })
 
             if rows:
-                # Garantir que sempre usa 'timestamp', não 'time'
                 df_to_save = pd.DataFrame(rows)
-                self.logger.info("✓ Salvos {} flows ({} com IPs válidos)".format(
-                    len(rows), flows_with_ip
+                self.logger.info("✓ Coletados {} flows ({} com IPs válidos) - Timestamp: {:.2f}".format(
+                    len(rows), flows_with_ip, current_time
                 ))
                 file_exists = os.path.exists(self.filename)
                 
-                # Se o arquivo existe, verificar compatibilidade de colunas
                 if file_exists:
                     try:
                         existing_df = pd.read_csv(self.filename, nrows=0)
-                        # Renomear 'time' para 'timestamp' se necessário
                         if 'time' in existing_df.columns and 'timestamp' not in existing_df.columns:
                             existing_df = pd.read_csv(self.filename)
                             existing_df.rename(columns={'time': 'timestamp'}, inplace=True)
@@ -349,7 +344,6 @@ class ControllerAPI(app_manager.RyuApp):
                         self.logger.warning("Erro ao verificar CSV: {}".format(ex))
                 
                 df_to_save.to_csv(self.filename, mode='a', index=False, header=not file_exists)
-                self.logger.info("Coletados {} fluxos".format(len(rows)))
 
         except Exception as e:
             self.logger.error("Failed to collect stats for dpid {}: {}".format(dpid, e))
@@ -367,24 +361,32 @@ class ControllerAPI(app_manager.RyuApp):
                 self.logger.info("No data for prediction")
                 return
 
-            # Verificar qual coluna de tempo existe no DataFrame
             time_column = 'timestamp' if 'timestamp' in df.columns else 'time'
-
+            
+            # FIX 6: Debug - mostrar range de timestamps
             self.logger.info("DEBUG: last_processed_time={:.2f}, max timestamp no CSV={:.2f}".format(
                 self.last_processed_time, df[time_column].max() if not df.empty else 0
             ))
             
+            # FIX 7: Usar >= ao invés de > para garantir que pega tudo
             df_unprocessed = df[df[time_column] >= self.last_processed_time].copy()
+            
             if df_unprocessed.empty:
-                self.logger.info("Nenhum tráfego novo desde a inicialização")
+                self.logger.info("Nenhum tráfego novo (last_processed={:.2f})".format(self.last_processed_time))
                 return
             
-            processing_start_time = time.time()
+            self.logger.info("PROCESSANDO {} NOVOS FLUXOS (timestamps: {:.2f} a {:.2f})".format(
+                len(df_unprocessed),
+                df_unprocessed[time_column].min(),
+                df_unprocessed[time_column].max()
+            ))
 
             temp_filename = "./backend/temp_predict.csv"
             df_unprocessed.to_csv(temp_filename, index=False)
 
-            self.logger.info("Iniciando predições para {} fluxos usando {} modelos".format(len(df_unprocessed), len(self.models)))
+            self.logger.info("Iniciando predições para {} fluxos usando {} modelos".format(
+                len(df_unprocessed), len(self.models)
+            ))
             predictions = {}
 
             for name, bundle in self.models.items():
@@ -460,9 +462,9 @@ class ControllerAPI(app_manager.RyuApp):
                         confidence_score, row['datapath_id'], row['ip_src'], row['ip_dst'], row['packet_count']
                     ))
                     self.block_traffic(row['datapath_id'], row['ip_src'], row['ip_dst'], 0)
-                else:
-                    self.logger.debug("Fluxo benigno: packets={}, bytes={}".format(row['packet_count'], row['byte_count']))
 
+            # FIX 8: Atualizar last_processed_time DEPOIS de processar tudo
+            # Usar o maior timestamp processado
             new_last_time = df_unprocessed[time_column].max()
             self.total_flows_processed += len(df_unprocessed)
             
