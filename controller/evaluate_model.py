@@ -1,3 +1,4 @@
+
 from sklearn.metrics import accuracy_score
 import pandas as pd
 import numpy as np
@@ -15,7 +16,6 @@ class ControllerAPI(app_manager.RyuApp):
             "random_forest": 0.97,
             "svm": 0.87,
         }
-        # Load models here
         self._load_models()
         self._initialize_csv()
 
@@ -56,3 +56,27 @@ class ControllerAPI(app_manager.RyuApp):
                     self.logger.info("Modelo {} carregado com sucesso".format(model_name))
             else:
                 self.logger.warning("Arquivo de modelo nao encontrado: {}".format(model_path))
+
+    def _initialize_csv(self):
+        columns = [
+            'timestamp', 'datapath_id', 'flow_id', 'ip_src', 'tp_src', 
+            'ip_dst', 'tp_dst', 'ip_proto', 'icmp_code', 'icmp_type',
+            'flow_duration_sec', 'flow_duration_nsec', 'idle_timeout',
+            'hard_timeout', 'flags', 'packet_count', 'byte_count',
+            'packet_count_per_second', 'packet_count_per_nsecond',
+            'byte_count_per_second', 'byte_count_per_nsecond'
+        ]
+        
+        if os.path.exists(self.filename):
+            try:
+                existing_df = pd.read_csv(self.filename)
+                if 'time' in existing_df.columns and 'timestamp' not in existing_df.columns:
+                    existing_df.rename(columns={'time': 'timestamp'}, inplace=True)
+                    existing_df.to_csv(self.filename, index=False)
+                    self.logger.info("Coluna 'time' renomeada para 'timestamp'")
+                return
+            except:
+                pass
+        
+        df = pd.DataFrame(columns=columns)
+        df.to_csv(self.filename, index=False)
