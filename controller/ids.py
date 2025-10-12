@@ -49,13 +49,13 @@ class ControllerAPI(app_manager.RyuApp):
             self.last_processed_time = self.start_time
             self.logger.info("IDS iniciado em timestamp: {}".format(self.start_time))
 
-            self.classification_threshold = 0.7
+            self.classification_threshold = 0.5
             
             self.accuracies = {
-                "decision_tree": 0.97,
-                "knn": 0.97,
+                "decision_tree": 1.0,
+                "knn": 0.99,
                 "random_forest": 0.97,
-                "svm": 0.87,
+                "svm": 0.97,
             }
 
             self._load_models()
@@ -241,6 +241,7 @@ class ControllerAPI(app_manager.RyuApp):
             flow_stats = response.json().get(str(dpid), [])
             rows = []
             current_time = time.time()
+            flows_with_ip = 0
 
             for stat in flow_stats:
                 match = stat.get('match', {})
@@ -248,6 +249,8 @@ class ControllerAPI(app_manager.RyuApp):
                 # Extrair informações do match
                 ip_src = match.get('ipv4_src', match.get('nw_src', '0.0.0.0'))
                 ip_dst = match.get('ipv4_dst', match.get('nw_dst', '0.0.0.0'))
+                if ip_src != '0.0.0.0' and ip_dst != '0.0.0.0':
+                    flows_with_ip += 1
                 tp_src = match.get('tcp_src', match.get('tcp_src', match.get('tp_src', 0)))
                 tp_dst = match.get('tcp_dst', match.get('tcp_dst', match.get('tp_dst', 0)))
                 ip_proto = match.get('ip_proto', match.get('nw_proto', 0))
@@ -335,7 +338,9 @@ class ControllerAPI(app_manager.RyuApp):
             if rows:
                 # Garantir que sempre usa 'timestamp', não 'time'
                 df_to_save = pd.DataFrame(rows)
-                
+                self.logger.info("✓ Salvos {} flows ({} com IPs válidos)".format(
+                    len(rows), flows_with_ip
+                ))
                 file_exists = os.path.exists(self.filename)
                 
                 # Se o arquivo existe, verificar compatibilidade de colunas
