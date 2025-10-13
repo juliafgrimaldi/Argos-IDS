@@ -437,6 +437,9 @@ class ControllerAPI(app_manager.RyuApp):
                     
                     if name == 'knn':
                         pred, _ = predict_knn(bundle, temp_filename)
+                        print("\nDistribuição das predições:", pd.Series(pred).value_counts())
+                        print("Exemplo das primeiras 5 linhas:")
+                        print(_[['prediction']].head())
                     elif name == 'svm':
                         pred, _ = predict_svm(bundle, temp_filename)
                     elif name == 'decision_tree':
