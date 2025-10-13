@@ -440,12 +440,12 @@ class ControllerAPI(app_manager.RyuApp):
                         print("\nDistribuição das predições:", pd.Series(pred).value_counts())
                         print("Exemplo das primeiras 5 linhas:")
                         print(_[['prediction']].head())
-                    elif name == 'svm':
-                        pred, _ = predict_svm(bundle, temp_filename)
-                    elif name == 'decision_tree':
-                        pred, _ = predict_decision_tree(bundle, temp_filename)
-                    elif name == 'random_forest':
-                        pred, _ = predict_random_forest(bundle, temp_filename)
+                    #elif name == 'svm':
+                    #    pred, _ = predict_svm(bundle, temp_filename)
+                    #elif name == 'decision_tree':
+                    #    pred, _ = predict_decision_tree(bundle, temp_filename)
+                    #elif name == 'random_forest':
+                    #    pred, _ = predict_random_forest(bundle, temp_filename)
                     else:
                         self.logger.warning("Modelo desconhecido: {}".format(name))
                         continue
