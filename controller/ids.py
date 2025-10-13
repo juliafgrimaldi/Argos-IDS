@@ -263,7 +263,7 @@ class ControllerAPI(app_manager.RyuApp):
             for dpid in dpids:
                 self.collect_and_store_stats(dpid)
             self.predict_traffic()
-            hub.sleep(10)
+            
 
     def collect_and_store_stats(self, dpid):
         try:
