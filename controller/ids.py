@@ -499,11 +499,13 @@ class ControllerAPI(app_manager.RyuApp):
                     break
                     
                 row = df_unprocessed.iloc[i].to_dict()
+                is_normal = bool(pred)           
+                is_malicious = not is_normal   
                 confidence_score = self._calculate_confidence_score(predictions, i) if len(predictions) > 1 else float(pred)
                 
-                self.save_flow(row, bool(pred), confidence_score)
+                self.save_flow(row, is_normal, confidence_score)
                 
-                if pred == 1:
+                if is_malicious:
                     blocked_count += 1
                     self.logger.warning("FLUXO MALICIOSO DETECTADO (confiança: {:.3f}): dpid={}, src={}, dst={}, packets={}".format(
                         confidence_score, row['datapath_id'], row['ip_src'], row['ip_dst'], row['packet_count']
@@ -564,7 +566,7 @@ class ControllerAPI(app_manager.RyuApp):
             
             if total_weight > 0:
                 avg_vote = weighted_sum / total_weight
-                final_prediction = 1 if avg_vote > self.classification_threshold else 0
+                final_prediction = 0 if avg_vote > self.classification_threshold else 1
             else:
                 final_prediction = 0
                 
