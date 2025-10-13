@@ -566,7 +566,7 @@ class ControllerAPI(app_manager.RyuApp):
             
             if total_weight > 0:
                 avg_vote = weighted_sum / total_weight
-                final_prediction = 0 if avg_vote > self.classification_threshold else 1
+                final_prediction = 1 if avg_vote > self.classification_threshold else 0
             else:
                 final_prediction = 0
                 
