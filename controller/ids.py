@@ -404,7 +404,7 @@ class ControllerAPI(app_manager.RyuApp):
                 self.last_processed_time, df[time_column].max() if not df.empty else 0
             ))
             
-            df_unprocessed = df[df[time_column] >= self.last_processed_time].copy()
+            df_unprocessed = df[df[time_column] > self.last_processed_time].copy()
             
             if df_unprocessed.empty:
                 self.logger.info("Nenhum tráfego novo (last_processed={:.2f})".format(self.last_processed_time))
@@ -584,8 +584,8 @@ class ControllerAPI(app_manager.RyuApp):
             "dpid": dpid,
             "priority": 100,
             "match": {
-                "ipv4_src": ip_src,
-                "ipv4_dst": ip_dst
+                "nw_src": ip_src,
+                "nw_dst": ip_dst
             },
             "actions": []
         }
