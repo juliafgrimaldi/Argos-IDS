@@ -300,11 +300,6 @@ class ControllerAPI(app_manager.RyuApp):
                 idle_timeout = stat.get('idle_timeout', 0)
                 hard_timeout = stat.get('hard_timeout', 0)
                 flags = stat.get('flags', 0)
-                
-             
-                if packet_count == 0 or byte_count == 0:
-                    flows_filtered_empty += 1
-                    continue
 
                 total_duration_sec = duration_sec + (duration_nsec / 1e9)
                 

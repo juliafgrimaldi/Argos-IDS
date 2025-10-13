@@ -2,24 +2,11 @@ import pandas as pd
 import numpy as np
 
 def predict_decision_tree(model_bundle, filename):
-    """
-    Realiza predição usando modelo Decision Tree
-    
-    Args:
-        model_bundle: Dicionário com modelo e transformadores
-        filename: Caminho do arquivo CSV com dados para predição
-    
-    Returns:
-        predictions: Array numpy com predições (0 ou 1)
-        df: DataFrame com coluna 'prediction' adicionada
-    """
     try:
         df = pd.read_csv(filename)
-        
         if df.empty:
             raise ValueError("O arquivo de predição está vazio.")
-        
-        # Extrair componentes do bundle
+
         model = model_bundle['model']
         selector = model_bundle['selector']
         encoder = model_bundle['encoder']
@@ -27,53 +14,57 @@ def predict_decision_tree(model_bundle, filename):
         scaler = model_bundle['scaler']
         numeric_columns = model_bundle['numeric_columns']
         categorical_columns = model_bundle['categorical_columns']
-        
-        # Substituir inf/-inf por NaN
+
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
-        
-        # Garantir que todas as colunas necessárias existem
+
         for col in numeric_columns:
             if col not in df.columns:
                 df[col] = 0
-                print(f"[Decision Tree] Coluna numérica ausente '{col}' - preenchida com 0")
-        
+                print(f"[DT] Coluna numérica ausente '{col}' - preenchida com 0")
+
         for col in categorical_columns:
             if col not in df.columns:
                 df[col] = "unknown"
-                print(f"[Decision Tree] Coluna categórica ausente '{col}' - preenchida com 'unknown'")
-        
-        # Preencher NaN em categóricas
+                print(f"[DT] Coluna categórica ausente '{col}' - preenchida com 'unknown'")
+
+        df = df.reindex(columns=numeric_columns + categorical_columns, fill_value=np.nan)
+
         df[categorical_columns] = df[categorical_columns].fillna("unknown")
-        
-        # Processar colunas numéricas
+
+        for col_idx, col in enumerate(categorical_columns):
+            categorias_treinadas = set(encoder.categories_[col_idx])
+            df[col] = np.where(
+                df[col].isin(categorias_treinadas),
+                df[col],
+                'unknown'
+            )
+
         X_num = imputer.transform(df[numeric_columns])
         X_num_scaled = scaler.transform(X_num)
-        
-        # Processar colunas categóricas
+
         X_cat = encoder.transform(df[categorical_columns].astype(str))
         X_cat_df = pd.DataFrame(
-            X_cat, 
+            X_cat,
             columns=encoder.get_feature_names_out(categorical_columns),
             index=df.index
         )
-        
-        # Combinar features
+
         X_full = pd.concat([
-            pd.DataFrame(X_num_scaled, columns=numeric_columns, index=df.index), 
+            pd.DataFrame(X_num_scaled, columns=numeric_columns, index=df.index),
             X_cat_df
         ], axis=1)
-        
-        # Selecionar features
+
         X_selected = selector.transform(X_full)
-        
-        # Fazer predição
+
         predictions = model.predict(X_selected)
-        
-        # Adicionar predições ao DataFrame
+
+        print(f"[DT] Formato após seleção: {X_selected.shape}")
+        unique, counts = np.unique(predictions, return_counts=True)
+        print(f"[DT] Predições únicas: {dict(zip(unique, counts))}")
+
         df["prediction"] = predictions
-        
         return predictions, df
-        
+
     except Exception as e:
         print(f"[Decision Tree] Erro na predição: {e}")
         import traceback
