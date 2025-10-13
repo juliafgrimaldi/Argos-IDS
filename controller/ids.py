@@ -3,6 +3,7 @@ import os
 import time
 import requests
 import pandas as pd
+import numpy as np
 import math
 import sqlite3
 from ryu.base import app_manager
@@ -317,7 +318,7 @@ class ControllerAPI(app_manager.RyuApp):
                 byte_count_per_nsecond = byte_count / total_duration_nsec
 
                 if packet_count_per_second > 10000:
-                    self.logger.warning("ATAQUE VOLUMÉTRICO DETECTADO: {} pps".format(packet_count_per_second))
+                    self.logger.warning("Bloqueio heurístico - ATAQUE VOLUMÉTRICO DETECTADO: {} pps".format(packet_count_per_second))
                     self.block_traffic(dpid, ip_src, ip_dst, in_port)
                     flows_filtered_volumetric += 1
                     continue
@@ -449,8 +450,8 @@ class ControllerAPI(app_manager.RyuApp):
                     if pred is not None and len(pred) > 0:
                         predictions[name] = pred
                         
-                        malicious_count = sum(pred)
-                        benign_count = len(pred) - malicious_count
+                        malicious_count = np.count_nonzero(pred==0)
+                        benign_count = np.count_nonzero(pred == 1)
                         self.logger.info("Modelo {}: {} maliciosos, {} benignos ({:.1f}% maliciosos)".format(
                             name, malicious_count, benign_count, 
                             (malicious_count/len(pred))*100 if len(pred) > 0 else 0
