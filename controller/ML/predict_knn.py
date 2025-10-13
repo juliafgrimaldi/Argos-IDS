@@ -1,10 +1,25 @@
 import pandas as pd
 import numpy as np
+import ipaddress
+import hashlib
+
+def safe_hash(value):
+    """Converte IPs e IDs em inteiros consistentes."""
+    if pd.isna(value):
+        return 0
+    s = str(value)
+    try:
+        return int(ipaddress.ip_address(s))
+    except ValueError:
+        # Hash seguro e determinístico
+        return int(hashlib.sha1(s.encode()).hexdigest(), 16) % (10**8)
 
 def predict_knn(model_bundle, filename):
     """
+    Realiza predição com modelo KNN (modo leve).
+    
     Args:
-        model_bundle: Dicionário com modelo e transformadores
+        model_bundle: Dicionário com modelo, scaler e colunas
         filename: Caminho do arquivo CSV com dados para predição
     
     Returns:
@@ -13,65 +28,42 @@ def predict_knn(model_bundle, filename):
     """
     try:
         df = pd.read_csv(filename)
-        
         if df.empty:
             raise ValueError("O arquivo de predição está vazio.")
-        
+
         # Extrair componentes do bundle
-        model = model_bundle['model']
-        selector = model_bundle['selector']
-        encoder = model_bundle['encoder']
-        imputer = model_bundle['imputer']
-        scaler = model_bundle['scaler']
-        numeric_columns = model_bundle['numeric_columns']
-        categorical_columns = model_bundle['categorical_columns']
-        
-        # Substituir inf/-inf por NaN
+        model = model_bundle["model"]
+        scaler = model_bundle.get("scaler", None)
+        numeric_columns = model_bundle.get("numeric_columns", [])
+        categorical_columns = model_bundle.get("categorical_columns", [])
+
+        # --- Preprocessamento leve ---
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
-        
-        # Garantir que todas as colunas necessárias existem
-        for col in numeric_columns:
-            if col not in df.columns:
-                df[col] = 0
-                print(f"[KNN] Coluna numérica ausente '{col}' - preenchida com 0")
-        
-        for col in categorical_columns:
-            if col not in df.columns:
-                df[col] = "unknown"
-                print(f"[KNN] Coluna categórica ausente '{col}' - preenchida com 'unknown'")
-        
-        # Preencher NaN em categóricas
-        df[categorical_columns] = df[categorical_columns].fillna("unknown")
-        
-        # Processar colunas numéricas
-        X_num = imputer.transform(df[numeric_columns])
-        X_num_scaled = scaler.transform(X_num)
-        
-        # Processar colunas categóricas
-        X_cat = encoder.transform(df[categorical_columns].astype(str))
-        X_cat_df = pd.DataFrame(
-            X_cat, 
-            columns=encoder.get_feature_names_out(categorical_columns),
-            index=df.index
-        )
-        
-        # Combinar features
-        X_full = pd.concat([
-            pd.DataFrame(X_num_scaled, columns=numeric_columns, index=df.index), 
-            X_cat_df
-        ], axis=1)
-        
-        # Selecionar features
-        X_selected = selector.transform(X_full)
-        
+
+        # Hash seguro para colunas identificadoras
+        for col in ["flow_id", "ip_src", "ip_dst"]:
+            if col in df.columns:
+                df[col] = df[col].apply(safe_hash)
+
+        # Converter categóricas para códigos numéricos
+        for col in df.select_dtypes(include=["object", "category"]).columns:
+            df[col] = df[col].astype(str).astype("category").cat.codes
+
+        # Preencher NaN com 0
+        df.fillna(0, inplace=True)
+
+        # Aplicar o scaler nas colunas numéricas (se existir)
+        if scaler and len(numeric_columns) > 0:
+            cols_comuns = [c for c in numeric_columns if c in df.columns]
+            if cols_comuns:
+                df[cols_comuns] = scaler.transform(df[cols_comuns])
+
         # Fazer predição
-        predictions = model.predict(X_selected)
-        
-        # Adicionar predições ao DataFrame
+        predictions = model.predict(df)
         df["prediction"] = predictions
-        
+
         return predictions, df
-        
+
     except Exception as e:
         print(f"[KNN] Erro na predição: {e}")
         import traceback
