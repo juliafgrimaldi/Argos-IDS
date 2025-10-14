@@ -7,6 +7,7 @@ import os
 import datetime
 import sqlite3
 import requests
+import json
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -15,34 +16,37 @@ RYU_REST_URL = "http://127.0.0.1:8080"
 CSV_FILE = 'traffic_predict.csv'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  
 DB_PATH = os.path.join(BASE_DIR, "../../../controller/traffic.db")
-MITIGATION_MODE = {"mode": "block"}  # valores possíveis: "block" ou "alert"
+CONFIG_FILE = os.path.join(BASE_DIR, "mitigation_mode.json")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-
-from fastapi import Request
+if not os.path.exists(CONFIG_FILE):
+    with open(CONFIG_FILE, "w") as f:
+        json.dump({"mode": "block"}, f)
 
 @app.post("/api/config/mode")
 async def set_mitigation_mode(request: Request):
     try:
         data = await request.json()
         mode = data.get("mode", "").lower().strip()
-
         if mode not in ["block", "alert"]:
             return {"status": "error", "message": "Modo inválido. Use 'block' ou 'alert'."}
 
-        MITIGATION_MODE["mode"] = mode
-        return {
-            "status": "success",
-            "message": f"Modo de mitigação alterado para '{mode.upper()}'"
-        }
+        with open(CONFIG_FILE, "w") as f:
+            json.dump({"mode": mode}, f)
+
+        return {"status": "success", "message": f"Modo de mitigação alterado para {mode.upper()}"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 @app.get("/api/config/mode")
 def get_mitigation_mode():
-    """Retorna o modo de mitigação atual (block ou alert)."""
-    return {"mode": MITIGATION_MODE["mode"]}
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            data = json.load(f)
+        return {"mode": data.get("mode", "block")}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 def get_db_connection():

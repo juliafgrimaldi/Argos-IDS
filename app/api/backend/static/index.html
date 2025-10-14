@@ -547,6 +547,25 @@
           trafficChart.update();
         }
 
+        const alertsList = document.getElementById('alerts-list');
+        alertsList.innerHTML = '';
+      
+        if (alerts.alerts.length === 0) {
+          alertsList.innerHTML = '<li style="text-align:center; color:#888;">Nenhum alerta recente</li>';
+        } else {
+          alerts.alerts.forEach(a => {
+            const li = document.createElement('li');
+            li.className = 'alert red';
+            li.innerHTML = `<strong>⚠️ Tráfego malicioso detectado</strong><br>${a.source} → ${a.destination}<br><small>${a.time}</small>`;
+            alertsList.appendChild(li);
+          });
+        }
+
+      } catch (e) {
+        console.error('Erro ao atualizar dashboard:', e);
+      }
+    }
+
     async function fetchMode() {
       try {
         const res = await fetch('/api/config/mode');
@@ -572,25 +591,6 @@
         fetchMode();
       } catch (e) {
         alert('Erro ao mudar o modo: ' + e);
-      }
-    }
-
-        // Alertas
-        const alertsList = document.getElementById('alerts-list');
-        alertsList.innerHTML = '';
-        
-        if (alerts.alerts.length === 0) {
-          alertsList.innerHTML = '<li style="text-align:center; color:#888;">Nenhum alerta recente</li>';
-        } else {
-          alerts.alerts.forEach(a => {
-            const li = document.createElement('li');
-            li.className = 'alert red';
-            li.innerHTML = `<strong>⚠️ Tráfego malicioso detectado</strong><br>${a.source} → ${a.destination} | ${a.packets} pacotes<br><small>${a.time}</small>`;
-            alertsList.appendChild(li);
-          });
-        }
-      } catch (e) {
-        console.error('Erro ao atualizar dashboard:', e);
       }
     }
 
