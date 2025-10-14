@@ -610,6 +610,7 @@ class ControllerAPI(app_manager.RyuApp):
                 "dpid": dpid,
                 "priority": 65535,
                 "match": {
+                    "eth_type": 2048,
                     "ipv4_src": ip_src,
                     "ipv4_dst": ip_dst
             },
