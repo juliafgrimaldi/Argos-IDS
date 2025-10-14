@@ -23,6 +23,24 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row  
     return conn
 
+def init_blocked_table():
+    """Cria tabela de bloqueios se não existir"""
+    conn = get_db_connection()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS blocked_flows (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            dpid INTEGER NOT NULL,
+            ip_src TEXT NOT NULL,
+            ip_dst TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            reason TEXT DEFAULT 'Manual block',
+            active BOOLEAN DEFAULT 1
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_blocked_table()
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
@@ -31,28 +49,68 @@ async def index():
 
 class BlockRequest(BaseModel):
     dpid: int
-    eth_src: str
-    eth_dst: str
-    in_port: int
+    ip_src: str
+    ip_dst: str
 
-def block_traffic_rest(dpid: int, eth_src: str, eth_dst: str, in_port: int):
+def block_traffic_rest(dpid: int, ip_src: str, ip_dst: str, reason: str = "Manual block"):
     flow_rule = {
         "dpid": dpid,
-        "priority": 100,
+        "priority": 65535,
         "match": {
-            "in_port": in_port,
-            "eth_src": eth_src,
-            "eth_dst": eth_dst
+            "eth_type": 2048,        
+            "ipv4_src": ip_src,
+            "ipv4_dst": ip_dst
         },
-        "actions": []  # Nenhuma ação = DROP
+        "actions": []  
     }
 
     try:
-        response = requests.post("{}/stats/flowentry/add".format(RYU_REST_URL), json=flow_rule)
+        response = requests.post(f"{RYU_REST_URL}/stats/flowentry/add", json=flow_rule, timeout=5)
         if response.status_code == 200:
-            return {"status": "success", "message": "Tráfego bloqueado com sucesso."}
+            # Salvar no banco
+            conn = get_db_connection()
+            conn.execute(
+                "INSERT INTO blocked_flows (dpid, ip_src, ip_dst, timestamp, reason, active) VALUES (?, ?, ?, ?, ?, ?)",
+                (dpid, ip_src, ip_dst, datetime.datetime.now().timestamp(), reason, 1)
+            )
+            conn.commit()
+            conn.close()
+            
+            return {"status": "success", "message": f"Bloqueado: {ip_src} → {ip_dst}"}
         else:
-            return {"status": "error", "message": "Erro do Ryu: {}".format(response.text)}
+            return {"status": "error", "message": f"Erro do Ryu: {response.text}"}
+    except requests.exceptions.Timeout:
+        return {"status": "error", "message": "Timeout ao conectar no Ryu"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+def unblock_traffic_rest(dpid: int, ip_src: str, ip_dst: str):
+    flow_rule = {
+        "dpid": dpid,
+        "priority": 65535,
+        "match": {
+            "eth_type": 2048,
+            "ipv4_src": ip_src,
+            "ipv4_dst": ip_dst
+        }
+    }
+
+    try:
+        response = requests.post(f"{RYU_REST_URL}/stats/flowentry/delete_strict", json=flow_rule, timeout=5)
+        if response.status_code == 200:
+            # Marcar como inativo no banco
+            conn = get_db_connection()
+            conn.execute(
+                "UPDATE blocked_flows SET active = 0 WHERE dpid = ? AND ip_src = ? AND ip_dst = ? AND active = 1",
+                (dpid, ip_src, ip_dst)
+            )
+            conn.commit()
+            conn.close()
+            
+            return {"status": "success", "message": f"🔓 Desbloqueado: {ip_src} → {ip_dst}"}
+        else:
+            return {"status": "error", "message": f"Erro do Ryu: {response.text}"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -60,59 +118,102 @@ def block_traffic_rest(dpid: int, eth_src: str, eth_dst: str, in_port: int):
 def block_flow(request: BlockRequest):
     result = block_traffic_rest(
         dpid=request.dpid,
-        eth_src=request.eth_src,
-        eth_dst=request.eth_dst,
-        in_port=request.in_port
+        ip_src=request.ip_src,
+        ip_dst=request.ip_dst,
+        reason="Manual block via dashboard"
     )
-
-    if result["status"] == "success":
-        conn = get_db_connection()
-        conn.execute(
-            "INSERT INTO blocked_flows (dpid, eth_src, eth_dst, in_port, timestamp) VALUES (?, ?, ?, ?, ?)",
-            (request.dpid, request.eth_src, request.eth_dst, request.in_port, datetime.datetime.now().timestamp())
-        )
-        conn.commit()
-        conn.close()
-
-        if not hasattr(app.state, "rules_active"):
-            app.state.rules_active = 0
-        app.state.rules_active += 1
-
     return result
+
+@app.delete("/unblock/{block_id}")
+def unblock_flow(block_id: int):
+    """Endpoint para desbloquear tráfego"""
+    conn = get_db_connection()
+    row = conn.execute("SELECT dpid, ip_src, ip_dst FROM blocked_flows WHERE id = ?", (block_id,)).fetchone()
+    conn.close()
+    
+    if not row:
+        return {"status": "error", "message": "Bloqueio não encontrado"}
+    
+    result = unblock_traffic_rest(row["dpid"], row["ip_src"], row["ip_dst"])
+    return result
+
+
+@app.get("/api/blocked")
+def get_blocked_flows():
+    conn = get_db_connection()
+    rows = conn.execute("""
+        SELECT id, dpid, ip_src, ip_dst, timestamp, reason, active
+        FROM blocked_flows
+        WHERE active = 1
+        ORDER BY timestamp DESC
+    """).fetchall()
+    conn.close()
+    
+    blocks = []
+    for row in rows:
+        blocks.append({
+            "id": row["id"],
+            "dpid": row["dpid"],
+            "ip_src": row["ip_src"],
+            "ip_dst": row["ip_dst"],
+            "timestamp": datetime.datetime.fromtimestamp(row["timestamp"]).strftime('%Y-%m-%d %H:%M:%S'),
+            "reason": row["reason"],
+            "active": bool(row["active"])
+        })
+    
+    return {"blocked": blocks, "total": len(blocks)}
+
 
 @app.get("/api/traffic")
 def get_traffic():
     conn = get_db_connection()
-    df = conn.execute("SELECT dpid, eth_src, eth_dst, in_port, bytes, time FROM flows").fetchall()
+    cursor = conn.execute("SELECT * FROM flows ORDER BY timestamp DESC LIMIT 100")
+    rows = cursor.fetchall()
     conn.close()
 
-    if not df:
-        return {"error": "No traffic data available."}
+    if not rows:
+        return {"labels": [], "datasets": []}
 
-    df = [dict(row) for row in df]
-    for row in df:
-        row["timestamp"] = datetime.datetime.fromtimestamp(row["time"]).strftime('%H:%M:%S')
+    timestamps = []
+    malicious_counts = []
+    benign_counts = []
+    
+    time_buckets = {}
+    for row in rows:
+        ts = datetime.datetime.fromtimestamp(row["timestamp"]).strftime('%H:%M')
+        if ts not in time_buckets:
+            time_buckets[ts] = {"malicious": 0, "benign": 0}
+        
+        if row["label"] == 1:  
+            time_buckets[ts]["malicious"] += 1
+        else:
+            time_buckets[ts]["benign"] += 1
+    
+    timestamps = sorted(time_buckets.keys())
+    malicious_counts = [time_buckets[t]["malicious"] for t in timestamps]
+    benign_counts = [time_buckets[t]["benign"] for t in timestamps]
 
-    aggregated = {}
-    timestamps = sorted(set(row["timestamp"] for row in df))
-    for row in df:
-        dpid = row["dpid"]
-        ts = row["timestamp"]
-        if dpid not in aggregated:
-            aggregated[dpid] = {t: 0 for t in timestamps}
-        aggregated[dpid][ts] += row["bytes"]
-
-    datasets = []
-    for dpid, traffic_data in aggregated.items():
-        datasets.append({
-            "label": f"Switch {dpid}",
-            "data": [traffic_data[t] for t in timestamps],
-            "fill": False,
-            "borderColor": f"#{hash(str(dpid)) & 0xFFFFFF:06x}",
-            "tension": 0.1
-        })
-
-    return {"labels": timestamps, "datasets": datasets}
+    return {
+        "labels": timestamps,
+        "datasets": [
+            {
+                "label": "Tráfego Malicioso",
+                "data": malicious_counts,
+                "borderColor": "#e53935",
+                "backgroundColor": "rgba(229, 57, 53, 0.1)",
+                "fill": True,
+                "tension": 0.4
+            },
+            {
+                "label": "Tráfego Benigno",
+                "data": benign_counts,
+                "borderColor": "#4caf50",
+                "backgroundColor": "rgba(76, 175, 80, 0.1)",
+                "fill": True,
+                "tension": 0.4
+            }
+        ]
+    }
 
 @app.get("/api/overview")
 def get_network_overview():
@@ -162,7 +263,7 @@ def get_stats():
     conn.close()
 
     total = len(rows)
-    suspicious = sum(1 for row in rows if row["label"] == 1) if rows else 0
+    suspicious = sum(1 for row in rows if row["label"] == 0) if rows else 1
     legitimate = total - suspicious
     legitimate_pct = round((legitimate / total) * 100, 1) if total > 0 else 100.0
     attacks_detected = suspicious
@@ -179,8 +280,8 @@ def get_stats():
 @app.get("/api/alerts")
 def get_recent_alerts(limit: int = 5):
     conn = get_db_connection()
-    rows = conn.execute("SELECT eth_src, eth_dst, in_port, time FROM flows WHERE label = 1 ORDER BY time DESC LIMIT ?", (limit,)).fetchall()
+    rows = conn.execute("SELECT ip_src, ip_dst, timestamp FROM flows WHERE label = 0 ORDER BY time DESC LIMIT ?", (limit,)).fetchall()
     conn.close()
 
-    alerts = [{"source": r["eth_src"], "destination": r["eth_dst"], "port": r["in_port"], "time": r["time"]} for r in rows]
+    alerts = [{"source": r["ip_src"], "destination": r["ip_dst"], "time": r["timestamp"]} for r in rows]
     return {"alerts": alerts}

@@ -5,11 +5,7 @@
   <title>Argos IDS Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* Reset básico */
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       background-color: #121212;
       color: #ffffff;
@@ -22,7 +18,6 @@
       flex-direction: column;
     }
 
-    /* Header fixo no topo */
     header {
       display: flex;
       align-items: center;
@@ -36,10 +31,8 @@
       right: 0;
       z-index: 1100;
       border-bottom: 1px solid #333;
-      user-select: none;
       font-size: 20px;
       font-weight: 600;
-      color: #eee;
     }
 
     #menu-toggle {
@@ -53,16 +46,9 @@
       border-radius: 4px;
       cursor: pointer;
       font-size: 18px;
-      user-select: none;
-      height: 30px;
-      width: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       z-index: 1200;
     }
 
-    /* Sidebar fixo, abaixo do header */
     aside {
       position: fixed;
       top: 50px;
@@ -77,14 +63,11 @@
       z-index: 1050;
     }
 
-    aside.collapsed {
-      transform: translateX(-100%);
-    }
+    aside.collapsed { transform: translateX(-100%); }
 
     aside h2 {
       font-size: 18px;
       margin-bottom: 10px;
-      user-select: none;
       color: #ccc;
     }
 
@@ -98,10 +81,9 @@
       margin: 10px 0;
       cursor: pointer;
       color: #ccc;
-      user-select: none;
       padding: 6px 4px;
       border-radius: 4px;
-      transition: background-color 0.2s, color 0.2s;
+      transition: background-color 0.2s;
     }
 
     aside ul li:hover {
@@ -109,7 +91,6 @@
       background-color: #333;
     }
 
-    /* Conteúdo principal */
     .container {
       margin-top: 50px;
       margin-left: 220px;
@@ -117,23 +98,15 @@
       height: calc(100vh - 50px);
       overflow-y: auto;
       transition: margin-left 0.3s ease;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
     }
 
-    .container.full {
-      margin-left: 0;
-    }
+    .container.full { margin-left: 0; }
 
-    /* Overview Cards */
     .overview {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 15px;
       margin-bottom: 20px;
-      width: 100%;
-      max-width: 1000px;
     }
 
     .overview .card {
@@ -168,43 +141,26 @@
       margin-top: 5px;
     }
 
-    /* Alerts Section */
-    .alerts {
+    .alerts, .blocks-list {
       background: #1e1e1e;
       padding: 15px;
       border-radius: 8px;
-      width: 100%;
-      max-width: 1000px;
       margin-top: 20px;
-      position: relative;
       box-shadow: 0 0 5px rgba(255,255,255,0.1);
     }
 
-    .alerts h3 {
-      margin: 0;
-      display: inline-block;
+    .alerts h3, .blocks-list h3 {
+      margin: 0 0 15px 0;
       font-size: 16px;
     }
 
-    .alerts .clear {
-      position: absolute;
-      right: 15px;
-      top: 15px;
-      background: #333;
-      border: none;
-      padding: 5px 10px;
-      color: #fff;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .alerts ul {
+    .alerts ul, .blocks-list ul {
       list-style: none;
-      margin: 10px 0 0;
+      margin: 0;
       padding: 0;
     }
 
-    .alerts li {
+    .alerts li, .blocks-list li {
       padding: 10px;
       margin-bottom: 8px;
       border-radius: 5px;
@@ -216,35 +172,34 @@
     }
 
     .alerts .alert.red { border-left: 4px solid #e53935; }
-    .alerts .alert.orange { border-left: 4px solid #ff9800; }
 
-    .alerts .time {
-      font-size: 12px;
-      color: #aaa;
-      margin-left: 10px;
+    .block-item {
+      border-left: 4px solid #ff9800;
     }
 
-    /* Container do gráfico */
+    .block-item .info {
+      flex: 1;
+    }
+
+    .block-item .actions button {
+      background: #e53935;
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .block-item .actions button:hover {
+      background: #c62828;
+    }
+
     #chart-container {
       background-color: #1e1e1e;
       padding: 20px;
       border-radius: 10px;
-      width: 100%;
-      max-width: 1000px;
       height: 400px;
-      box-sizing: border-box;
-      margin-top: 20px;
-    }
-
-    #trafficChart {
-      width: 100% !important;
-      height: 100% !important;
-    }
-
-    /* Seção bloqueio de tráfego */
-    #block-section {
-      width: 100%;
-      max-width: 500px;
       margin-top: 20px;
     }
 
@@ -259,7 +214,6 @@
       border: none;
       width: 100%;
       font-size: 16px;
-      box-sizing: border-box;
     }
 
     button {
@@ -271,151 +225,94 @@
       cursor: pointer;
       font-size: 16px;
       width: 100%;
-      user-select: none;
       transition: background-color 0.3s;
     }
 
-    button:hover {
-      background-color: #555;
-    }
+    button:hover { background-color: #555; }
 
-    label {
-      font-size: 14px;
-      user-select: none;
-    }
+    label { font-size: 14px; }
 
-    .form-group {
-      margin-bottom: 15px;
-    }
-
-    /* Scrollbar fina para sidebar */
-    aside::-webkit-scrollbar {
-      width: 6px;
-    }
-    aside::-webkit-scrollbar-thumb {
-      background: #555;
-      border-radius: 3px;
-    }
-
-    @media (max-width: 800px) {
-      .overview {
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      }
-
-      .alerts {
-        font-size: 13px;
-      }
-
-      .alerts li {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .alerts .time {
-        margin-left: 0;
-        margin-top: 4px;
-      }
-    }
-
-    @media (max-width: 700px) {
-      aside {
-        width: 180px;
-      }
-      .container {
-        margin-left: 180px;
-      }
-      #chart-container {
-        height: 300px;
-      }
-    }
+    .form-group { margin-bottom: 15px; }
   </style>
 </head>
 <body>
-  <header>ARGOS IDS</header>
-  <button id="menu-toggle" aria-label="Toggle menu">☰</button>
+  <header>🛡️ ARGOS IDS</header>
+  <button id="menu-toggle">☰</button>
 
   <aside id="sidebar">
     <h2>Menu</h2>
     <ul>
-      <li onclick="showSection('dashboard')">My Network</li>
-      <li onclick="showSection('block')">Block Traffic</li>
+      <li onclick="showSection('dashboard')">📊 Dashboard</li>
+      <li onclick="showSection('block')">🚫 Bloquear Tráfego</li>
+      <li onclick="showSection('blocked')">📋 Bloqueios Ativos</li>
     </ul>
   </aside>
 
   <div class="container" id="main-container">
+    <!-- DASHBOARD -->
     <div id="dashboard-section">
-      <!-- Overview Cards -->
       <div class="overview">
         <div class="card">
           <h3>SWITCHES ATIVOS</h3>
-          <p id="switches">N/A</p>
-          <span class="status green">+0 hoje</span>
+          <p id="switches">-</p>
         </div>
         <div class="card">
           <h3>HOSTS ATIVOS</h3>
-          <p id="hosts">N/A</p>
-          <span class="status green">+0 hoje</span>
+          <p id="hosts">-</p>
         </div>
         <div class="card">
           <h3>ATAQUES DETECTADOS</h3>
-          <p id="attacks">N/A</p>
-          <span class="status red">+0 últimas 2h</span>
+          <p id="attacks" class="red">-</p>
         </div>
         <div class="card">
           <h3>TRÁFEGO SUSPEITO</h3>
-          <p id="suspiciousTraffic" class="orange">N/A</p>
-          <span class="status orange">+0% hoje</span>
+          <p id="suspiciousTraffic" class="orange">-</p>
         </div>
         <div class="card">
           <h3>TRÁFEGO LEGÍTIMO</h3>
-          <p id="legitTraffic" class="green">N/A</p>
-          <span class="status normal">Normal</span>
+          <p id="legitTraffic" class="green">-</p>
         </div>
         <div class="card">
           <h3>REGRAS ATIVAS</h3>
-          <p id="rules">N/A</p>
-          <span class="status green">0 atualizadas</span>
+          <p id="rules">-</p>
         </div>
       </div>
 
-      <!-- Gráfico -->
       <div id="chart-container">
         <canvas id="trafficChart"></canvas>
       </div>
 
-      <!-- Alertas -->
       <div class="alerts">
-        <h3>🎉 Alertas Recentes</h3>
-        <button class="clear" onclick="clearAlerts()">LIMPAR</button>
+        <h3>🚨 Alertas Recentes</h3>
         <ul id="alerts-list"></ul>
       </div>
     </div>
 
-    <!-- Seção de bloqueio de tráfego -->
+    <!-- BLOQUEAR TRÁFEGO -->
     <div id="block-section" class="hidden">
-      <h2>Bloquear Tráfego</h2>
-
+      <h2>🚫 Bloquear Tráfego</h2>
       <div class="form-group">
         <label for="switchSelect">Switch</label>
         <select id="switchSelect"></select>
       </div>
-
       <div class="form-group">
-        <label for="srcSelect">Host de Origem (eth_src)</label>
-        <select id="srcSelect"></select>
+        <label for="srcInput">IP Origem</label>
+        <input type="text" id="srcInput" placeholder="10.0.0.1">
       </div>
-
       <div class="form-group">
-        <label for="dstSelect">Host de Destino (eth_dst)</label>
-        <select id="dstSelect"></select>
+        <label for="dstInput">IP Destino</label>
+        <input type="text" id="dstInput" placeholder="10.0.0.2">
       </div>
+      <button onclick="blockTraffic()">🔒 Bloquear</button>
+    </div>
 
-      <div class="form-group">
-        <label for="inPort">Porta de Entrada (in_port)</label>
-        <input type="number" id="inPort" placeholder="Ex: 1" />
+    <!-- BLOQUEIOS ATIVOS -->
+    <div id="blocked-section" class="hidden">
+      <h2>📋 Bloqueios Ativos</h2>
+      <div class="blocks-list">
+        <h3>Total de bloqueios: <span id="blocks-count">0</span></h3>
+        <ul id="blocks-list"></ul>
       </div>
-
-      <button onclick="blockTraffic()">Bloquear Tráfego</button>
     </div>
   </div>
 
@@ -430,25 +327,13 @@
     };
 
     function showSection(section) {
-      document.getElementById('dashboard-section').classList.toggle('hidden', section !== 'dashboard');
-      document.getElementById('block-section').classList.toggle('hidden', section !== 'block');
-    }
-
-    async function fetchTrafficData() {
-      try {
-        const response = await fetch('/api/traffic');
-        return await response.json();
-      } catch {
-        return { labels: [], datasets: [] };
-      }
-    }
-
-    async function fetchTopologyData() {
-      try {
-        const response = await fetch('/api/overview');
-        return await response.json();
-      } catch {
-        return { switches: 'N/A', hosts: 'N/A', attacks: 'N/A', suspiciousTraffic: 'N/A', legitTraffic: 'N/A', rules: 'N/A', alerts: [] };
+      document.getElementById('dashboard-section').classList.add('hidden');
+      document.getElementById('block-section').classList.add('hidden');
+      document.getElementById('blocked-section').classList.add('hidden');
+      document.getElementById(section + '-section').classList.remove('hidden');
+      
+      if (section === 'blocked') {
+        updateBlockedFlows();
       }
     }
 
@@ -467,105 +352,159 @@
       } catch {}
     }
 
-    async function fetchHosts() {
+    async function blockTraffic() {
+      const switchId = document.getElementById('switchSelect').value;
+      const ipSrc = document.getElementById('srcInput').value;
+      const ipDst = document.getElementById('dstInput').value;
+
+      if (!ipSrc || !ipDst) {
+        alert('❌ Preencha os IPs de origem e destino');
+        return;
+      }
+
       try {
-        const response = await fetch('/api/hosts');
-        const data = await response.json();
-        const srcSelect = document.getElementById('srcSelect');
-        const dstSelect = document.getElementById('dstSelect');
-        srcSelect.innerHTML = '';
-        dstSelect.innerHTML = '';
-        data.hosts.forEach(host => {
-          const option1 = document.createElement('option');
-          const option2 = document.createElement('option');
-          option1.value = option2.value = host.mac;
-          option1.text = option2.text = host.mac;
-          srcSelect.appendChild(option1);
-          dstSelect.appendChild(option2);
+        const resp = await fetch('/block', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            dpid: parseInt(switchId),
+            ip_src: ipSrc,
+            ip_dst: ipDst
+          })
         });
-      } catch {}
+        const result = await resp.json();
+        
+        if (result.status === 'success') {
+          alert('✅ ' + result.message);
+          document.getElementById('srcInput').value = '';
+          document.getElementById('dstInput').value = '';
+        } else {
+          alert('❌ ' + result.message);
+        }
+      } catch (e) {
+        alert('❌ Erro: ' + e);
+      }
     }
 
-    function blockTraffic() {
-      const switchId = document.getElementById('switchSelect').value;
-      const srcMac = document.getElementById('srcSelect').value;
-      const dstMac = document.getElementById('dstSelect').value;
-      const inPort = document.getElementById('inPort').value;
-
-      fetch('/block', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          dpid: switchId,
-          eth_src: srcMac,
-          eth_dst: dstMac,
-          in_port: inPort ? parseInt(inPort) : null
-        })
-      }).then(resp => {
-        if(resp.ok) {
-          alert('Tráfego bloqueado com sucesso!');
+    async function unblockTraffic(blockId) {
+      if (!confirm('Deseja realmente desbloquear este tráfego?')) return;
+      
+      try {
+        const resp = await fetch(`/unblock/${blockId}`, { method: 'DELETE' });
+        const result = await resp.json();
+        
+        if (result.status === 'success') {
+          alert('✅ ' + result.message);
+          updateBlockedFlows();
         } else {
-          alert('Falha ao bloquear tráfego.');
+          alert('❌ ' + result.message);
         }
-      }).catch(() => alert('Erro na requisição.'));
+      } catch (e) {
+        alert('❌ Erro: ' + e);
+      }
+    }
+
+    async function updateBlockedFlows() {
+      try {
+        const resp = await fetch('/api/blocked');
+        const data = await resp.json();
+        
+        document.getElementById('blocks-count').textContent = data.total;
+        
+        const list = document.getElementById('blocks-list');
+        list.innerHTML = '';
+        
+        if (data.blocked.length === 0) {
+          list.innerHTML = '<li style="text-align:center; color:#888;">Nenhum bloqueio ativo</li>';
+          return;
+        }
+        
+        data.blocked.forEach(block => {
+          const li = document.createElement('li');
+          li.className = 'block-item';
+          li.innerHTML = `
+            <div class="info">
+              <strong>🚫 Switch ${block.dpid}</strong><br>
+              ${block.ip_src} → ${block.ip_dst}<br>
+              <small style="color:#888;">${block.timestamp} | ${block.reason}</small>
+            </div>
+            <div class="actions">
+              <button onclick="unblockTraffic(${block.id})">🔓 Desbloquear</button>
+            </div>
+          `;
+          list.appendChild(li);
+        });
+      } catch (e) {
+        console.error('Erro ao carregar bloqueios:', e);
+      }
     }
 
     let trafficChart;
 
     async function updateDashboard() {
-      const trafficData = await fetchTrafficData();
-      const topoData = await fetchTopologyData();
-      const statsResp = await fetch('/api/stats');
-      const stats = await statsResp.json();
+      try {
+        const [trafficResp, statsResp, topoResp, alertsResp] = await Promise.all([
+          fetch('/api/traffic'),
+          fetch('/api/stats'),
+          fetch('/api/overview'),
+          fetch('/api/alerts')
+        ]);
 
-      // Atualiza cards
-      document.getElementById('switches').textContent = topoData.switches;
-      document.getElementById('hosts').textContent = topoData.hosts;
-      document.getElementById('attacks').textContent = stats.attacks_detected ?? 'N/A';
-      document.getElementById('suspiciousTraffic').textContent = stats.suspicious_traffic ?? 'N/A';
-      document.getElementById('legitTraffic').textContent = stats.legitimate_traffic_pct ?? 'N/A';
-      document.getElementById('rules').textContent = stats.rules_active ?? 'N/A';
+        const traffic = await trafficResp.json();
+        const stats = await statsResp.json();
+        const topo = await topoResp.json();
+        const alerts = await alertsResp.json();
 
-      // Atualiza gráfico
-      if (!trafficChart) {
-        const ctx = document.getElementById('trafficChart').getContext('2d');
-        trafficChart = new Chart(ctx, {
-          type: 'line',
-          data: trafficData,
-          options: {
-            responsive: true,
-            scales: {
-              y: { beginAtZero: true, ticks: { color: '#ccc' } },
-              x: { ticks: { color: '#ccc' } }
-            },
-            plugins: { legend: { labels: { color: '#ccc' } } }
-          }
-        });
-      } else {
-        trafficChart.data = trafficData;
-        trafficChart.update();
+        // Atualizar cards
+        document.getElementById('switches').textContent = topo.switches;
+        document.getElementById('hosts').textContent = topo.hosts;
+        document.getElementById('attacks').textContent = stats.attacks_detected;
+        document.getElementById('suspiciousTraffic').textContent = stats.suspicious_traffic;
+        document.getElementById('legitTraffic').textContent = stats.legitimate_traffic_pct + '%';
+        document.getElementById('rules').textContent = stats.rules_active;
+
+        // Gráfico
+        if (!trafficChart) {
+          const ctx = document.getElementById('trafficChart').getContext('2d');
+          trafficChart = new Chart(ctx, {
+            type: 'line',
+            data: traffic,
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: { beginAtZero: true, ticks: { color: '#ccc' } },
+                x: { ticks: { color: '#ccc' } }
+              },
+              plugins: { legend: { labels: { color: '#ccc' } } }
+            }
+          });
+        } else {
+          trafficChart.data = traffic;
+          trafficChart.update();
+        }
+
+        // Alertas
+        const alertsList = document.getElementById('alerts-list');
+        alertsList.innerHTML = '';
+        
+        if (alerts.alerts.length === 0) {
+          alertsList.innerHTML = '<li style="text-align:center; color:#888;">Nenhum alerta recente</li>';
+        } else {
+          alerts.alerts.forEach(a => {
+            const li = document.createElement('li');
+            li.className = 'alert red';
+            li.innerHTML = `<strong>⚠️ Tráfego malicioso detectado</strong><br>${a.source} → ${a.destination} | ${a.packets} pacotes<br><small>${a.time}</small>`;
+            alertsList.appendChild(li);
+          });
+        }
+      } catch (e) {
+        console.error('Erro ao atualizar dashboard:', e);
       }
-
-      // Atualiza alertas
-      const alertsList = document.getElementById('alerts-list');
-      alertsList.innerHTML = '';
-      if(topoData.alerts) {
-        topoData.alerts.forEach(a => {
-          const li = document.createElement('li');
-          li.className = `alert ${a.type}`; // 'red' ou 'orange'
-          li.innerHTML = `<strong>${a.title}</strong><br>Origem: ${a.src} → Destino: ${a.dst} | Porta: ${a.port ?? '-'}<span class="time">${a.time}</span>`;
-          alertsList.appendChild(li);
-        });
-      }
-    }
-
-    function clearAlerts() {
-      document.getElementById('alerts-list').innerHTML = '';
     }
 
     async function init() {
       await fetchSwitches();
-      await fetchHosts();
       await updateDashboard();
       setInterval(updateDashboard, 10000);
     }
