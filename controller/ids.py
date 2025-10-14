@@ -574,12 +574,29 @@ class ControllerAPI(app_manager.RyuApp):
         return final_predictions
     
     def block_traffic(self, dpid, ip_src, ip_dst, in_port):
+        self.logger.info("="*60)
+        self.logger.info("TENTATIVA DE BLOQUEIO")
+        self.logger.info("="*60)
+        self.logger.info("dpid: {} (tipo: {})".format(dpid, type(dpid)))
+        self.logger.info("ip_src: {} (tipo: {})".format(ip_src, type(ip_src)))
+        self.logger.info("ip_dst: {} (tipo: {})".format(ip_dst, type(ip_dst)))
+        self.logger.info("block_url: {}".format(self.block_url))
         if ip_src in self.blocked_sources:
             last_block = self.blocked_sources[ip_src]
             if time.time() - last_block < self.block_cooldown:
                 self.logger.debug("Origem {} já bloqueada recentemente".format(ip_src))
                 return 
 
+        try:
+            dpid = int(dpid)
+        except (ValueError, TypeError) as e:
+            self.logger.error("ERRO: dpid inválido: {} - {}".format(dpid, e))
+            return
+        
+        if not ip_src or ip_src == '0.0.0.0' or not ip_dst or ip_dst == '0.0.0.0':
+            self.logger.error("ERRO: IPs inválidos - src={}, dst={}".format(ip_src, ip_dst))
+            return
+        
         flow_rule = {
             "dpid": dpid,
             "priority": 100,
@@ -589,12 +606,37 @@ class ControllerAPI(app_manager.RyuApp):
             },
             "actions": []
         }
+
+        self.logger.info("Regra a ser enviada:")
+        self.logger.info("  {}".format(flow_rule))
+
+
         try:
-            response = requests.post(self.block_url, json=flow_rule)
+            self.logger.info("Enviando POST para: {}".format(self.block_url))
+            response = requests.post(self.block_url, json=flow_rule, timeout=5)
+            
+            self.logger.info("Resposta HTTP: {}".format(response.status_code))
+            self.logger.info("Corpo da resposta: {}".format(response.text))
+            
             if response.status_code == 200:
-                self.logger.info("Successfully blocked traffic from {} to {}".format(ip_src, ip_dst))
+                self.logger.warning("✅ BLOQUEIO INSTALADO COM SUCESSO!")
+                self.logger.warning("   {} -> {} no switch {} (priority=65535)".format(
+                    ip_src, ip_dst, dpid
+                ))
                 self.blocked_sources[ip_src] = time.time()
             else:
-                self.logger.error("Failed to block traffic: {} {}".format(response.status_code, response.text))
+                self.logger.error("❌ FALHA HTTP {}: {}".format(
+                    response.status_code, response.text
+                ))
+                
+        except requests.exceptions.Timeout:
+            self.logger.error("❌ TIMEOUT ao conectar em {}".format(self.block_url))
+        except requests.exceptions.ConnectionError as e:
+            self.logger.error("❌ ERRO DE CONEXÃO: {}".format(e))
+            self.logger.error("   Certifique-se que o Ryu REST está ativo")
         except Exception as e:
-            self.logger.error("Error sending block rule: {}".format(e))
+            self.logger.error("❌ ERRO INESPERADO: {}".format(e))
+            import traceback
+            self.logger.error(traceback.format_exc())
+        
+        self.logger.info("="*60)
