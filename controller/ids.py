@@ -257,14 +257,23 @@ class ControllerAPI(app_manager.RyuApp):
 
     def _monitor(self):
         while True:
-            self.logger.info("Monitor thread active")
-            dpids = self.get_active_dpids()
-            self.logger.info(f"DPIDs ativos: {dpids}")
-            for dpid in dpids:
-                self.collect_and_store_stats(dpid)
-            self.predict_traffic()
-            hub.sleep(10)
-            
+            try:
+                try:
+                    resp = requests.get("http://127.0.0.1:8000/api/config/mode", timeout=2)
+                    if resp.status_code == 200:
+                        self.mitigation_mode = resp.json().get("mode", "block")
+                except Exception as e:
+                    self.logger.warning(f"Falha ao sincronizar modo com painel: {e}")
+
+                self.logger.info(f"[Modo atual de mitigação: {self.mitigation_mode.upper()}]")
+                dpids = self.get_active_dpids()
+                self.logger.info(f"DPIDs ativos: {dpids}")
+                for dpid in dpids:
+                    self.collect_and_store_stats(dpid)
+                self.predict_traffic()
+                hub.sleep(10)
+            except Exception as e:
+                self.logger.error(f"Erro no monitoramento: {e}")
 
     def collect_and_store_stats(self, dpid):
         try:
@@ -573,6 +582,31 @@ class ControllerAPI(app_manager.RyuApp):
             final_predictions.append(final_prediction)
         
         return final_predictions
+
+    def save_block_in_db(self, dpid, ip_src, ip_dst, reason="Automatic IDS block"):
+        try:
+            conn = sqlite3.connect("traffic.db")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS blocked_flows (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    dpid INTEGER NOT NULL,
+                    ip_src TEXT NOT NULL,
+                    ip_dst TEXT NOT NULL,
+                    timestamp REAL NOT NULL,
+                    reason TEXT DEFAULT 'IDS block',
+                    active BOOLEAN DEFAULT 1
+                )
+            """)
+            conn.execute(
+                "INSERT INTO blocked_flows (dpid, ip_src, ip_dst, timestamp, reason, active) VALUES (?, ?, ?, ?, ?, ?)",
+                (dpid, ip_src, ip_dst, time.time(), reason, 1)
+        )
+            conn.commit()
+            conn.close()
+            self.logger.info(f" Bloqueio salvo no banco: {ip_src} -> {ip_dst}")
+        except Exception as e:
+            self.logger.error(f"Erro ao salvar bloqueio no banco: {e}")
+
     
     def block_traffic(self, dpid, ip_src, ip_dst, in_port):
         self.logger.info("="*60)
@@ -634,6 +668,7 @@ class ControllerAPI(app_manager.RyuApp):
                     ip_src, ip_dst, dpid
                 ))
                 self.blocked_sources[ip_src] = time.time()
+                self.save_block_in_db(dpid, ip_src, ip_dst, reason="IDS block")
             else:
                 self.logger.error("❌ FALHA HTTP {}: {}".format(
                     response.status_code, response.text

@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from fastapi import Request
 import pandas as pd
 import os
 import datetime
@@ -14,8 +15,34 @@ RYU_REST_URL = "http://127.0.0.1:8080"
 CSV_FILE = 'traffic_predict.csv'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  
 DB_PATH = os.path.join(BASE_DIR, "../../../controller/traffic.db")
+MITIGATION_MODE = {"mode": "block"}  # valores possíveis: "block" ou "alert"
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+from fastapi import Request
+
+@app.post("/api/config/mode")
+async def set_mitigation_mode(request: Request):
+    try:
+        data = await request.json()
+        mode = data.get("mode", "").lower().strip()
+
+        if mode not in ["block", "alert"]:
+            return {"status": "error", "message": "Modo inválido. Use 'block' ou 'alert'."}
+
+        MITIGATION_MODE["mode"] = mode
+        return {
+            "status": "success",
+            "message": f"Modo de mitigação alterado para '{mode.upper()}'"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.get("/api/config/mode")
+def get_mitigation_mode():
+    """Retorna o modo de mitigação atual (block ou alert)."""
+    return {"mode": MITIGATION_MODE["mode"]}
 
 
 def get_db_connection():
@@ -280,7 +307,7 @@ def get_stats():
 @app.get("/api/alerts")
 def get_recent_alerts(limit: int = 5):
     conn = get_db_connection()
-    rows = conn.execute("SELECT ip_src, ip_dst, timestamp FROM flows WHERE label = 0 ORDER BY time DESC LIMIT ?", (limit,)).fetchall()
+    rows = conn.execute("SELECT ip_src, ip_dst, timestamp FROM flows WHERE label = 0 ORDER BY timestamp DESC LIMIT ?", (limit,)).fetchall()
     conn.close()
 
     alerts = [{"source": r["ip_src"], "destination": r["ip_dst"], "time": r["timestamp"]} for r in rows]

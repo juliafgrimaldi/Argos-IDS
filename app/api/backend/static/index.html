@@ -233,6 +233,57 @@
     label { font-size: 14px; }
 
     .form-group { margin-bottom: 15px; }
+
+    .mode-box {
+      background: #1e1e1e;
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+    }
+
+    .mode-status {
+      font-size: 16px;
+    }
+
+    .mode-status span {
+      font-weight: bold;
+      padding: 5px 10px;
+      border-radius: 6px;
+    }
+
+    .mode-status .block {
+      background: #4caf50;
+      color: #fff;
+    }
+
+    .mode-status .alert {
+      background: #e53935;
+      color: #fff;
+    }
+
+    .mode-buttons {
+      display: flex;
+      gap: 10px;
+    }
+
+    .mode-buttons button {
+      background-color: #333;
+      color: #fff;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+
+    .mode-buttons button:hover {
+      background-color: #555;
+    }
   </style>
 </head>
 <body>
@@ -316,6 +367,17 @@
     </div>
   </div>
 
+    <div class="mode-box">
+      <div class="mode-status">
+        🧭 Modo de mitigação atual: 
+        <span id="modeDisplay" class="block">BLOCK</span>
+      </div>
+      <div class="mode-buttons">
+        <button onclick="setMode('block')">Bloquear</button>
+        <button onclick="setMode('alert')">Apenas Alerta</button>
+      </div>
+    </div>
+
   <script>
     const sidebar = document.getElementById('sidebar');
     const container = document.getElementById('main-container');
@@ -335,6 +397,7 @@
       if (section === 'blocked') {
         updateBlockedFlows();
       }
+      if (section === 'dashboard') fetchMode();
     }
 
     async function fetchSwitches() {
@@ -484,6 +547,34 @@
           trafficChart.update();
         }
 
+    async function fetchMode() {
+      try {
+        const res = await fetch('/api/config/mode');
+        const data = await res.json();
+        const mode = data.mode || 'block';
+        const el = document.getElementById('modeDisplay');
+        el.textContent = mode.toUpperCase();
+        el.className = mode === 'block' ? 'block' : 'alert';
+      } catch (e) {
+        console.error('Erro ao obter modo:', e);
+      }
+    }  
+      
+    async function setMode(mode) {
+      try {
+        const res = await fetch('/api/config/mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode })
+        });
+        const data = await res.json();
+        alert(data.message || 'Modo atualizado');
+        fetchMode();
+      } catch (e) {
+        alert('Erro ao mudar o modo: ' + e);
+      }
+    }
+
         // Alertas
         const alertsList = document.getElementById('alerts-list');
         alertsList.innerHTML = '';
@@ -505,6 +596,7 @@
 
     async function init() {
       await fetchSwitches();
+      await fetchMode();
       await updateDashboard();
       setInterval(updateDashboard, 10000);
     }
