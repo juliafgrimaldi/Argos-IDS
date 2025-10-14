@@ -263,6 +263,7 @@ class ControllerAPI(app_manager.RyuApp):
             for dpid in dpids:
                 self.collect_and_store_stats(dpid)
             self.predict_traffic()
+            hub.sleep(10)
             
 
     def collect_and_store_stats(self, dpid):
@@ -593,16 +594,24 @@ class ControllerAPI(app_manager.RyuApp):
             self.logger.error("ERRO: dpid inválido: {} - {}".format(dpid, e))
             return
         
-        if ip_src or ip_src == '0.0.0.0':
-            self.logger.error("ERRO: IPs inválidos - src={}, dst={}".format(ip_src, ip_dst))
-            return
+        ip_invalid = (
+            not ip_src or ip_src == '0.0.0.0' or 
+            not ip_dst or ip_dst == '0.0.0.0'
+        )
         
-        flow_rule = {
-            "dpid": dpid,
-            "priority": 65535,
-            "match": {
-                "ipv4_src": ip_src,
-                "ipv4_dst": ip_dst
+        if ip_invalid:
+            self.logger.error(
+            f"ERRO: IPs e MACs inválidos — impossível bloquear: src={ip_src}, dst={ip_dst}"
+        )
+            return
+
+        else:
+            flow_rule = {
+                "dpid": dpid,
+                "priority": 65535,
+                "match": {
+                    "ipv4_src": ip_src,
+                    "ipv4_dst": ip_dst
             },
             "actions": []
         }
