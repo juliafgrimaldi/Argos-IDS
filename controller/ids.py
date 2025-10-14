@@ -593,16 +593,16 @@ class ControllerAPI(app_manager.RyuApp):
             self.logger.error("ERRO: dpid inválido: {} - {}".format(dpid, e))
             return
         
-        if not ip_src or ip_src == '0.0.0.0' or not ip_dst or ip_dst == '0.0.0.0':
+        if ip_src or ip_src == '0.0.0.0':
             self.logger.error("ERRO: IPs inválidos - src={}, dst={}".format(ip_src, ip_dst))
             return
         
         flow_rule = {
             "dpid": dpid,
-            "priority": 100,
+            "priority": 65535,
             "match": {
-                "nw_src": ip_src,
-                "nw_dst": ip_dst
+                "ipv4_src": ip_src,
+                "ipv4_dst": ip_dst
             },
             "actions": []
         }
