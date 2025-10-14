@@ -291,15 +291,15 @@ def get_hosts():
 def get_stats():
     conn = get_db_connection()
     rows = conn.execute("SELECT label FROM flows").fetchall()
-    conn.close()
 
     total = len(rows)
     suspicious = sum(1 for row in rows if row["label"] == 0) if rows else 1
     legitimate = total - suspicious
     legitimate_pct = round((legitimate / total) * 100, 1) if total > 0 else 100.0
     attacks_detected = suspicious
-    rules_active = getattr(app.state, "rules_active", 0)
-
+    active_rules = conn.execute("SELECT COUNT(*) FROM blocked_flows WHERE active = 1").fetchone()
+    rules_active = active_rules[0] if active_rules else 0
+    conn.close()
     return {
         "attacks_detected": attacks_detected,
         "suspicious_traffic": suspicious,
