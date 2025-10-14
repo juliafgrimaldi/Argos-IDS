@@ -215,7 +215,7 @@ def get_traffic():
         if ts not in time_buckets:
             time_buckets[ts] = {"malicious": 0, "benign": 0}
         
-        if row["label"] == 1:  
+        if row["label"] == 0:  
             time_buckets[ts]["malicious"] += 1
         else:
             time_buckets[ts]["benign"] += 1
@@ -249,7 +249,7 @@ def get_traffic():
 @app.get("/api/overview")
 def get_network_overview():
     try:
-        switches_resp = requests.get("{}/v1.0/topology/switches".format(RYU_REST_URL))
+        switches_resp = requests.get("{}/stats/switches".format(RYU_REST_URL))
         hosts_resp = requests.get("{}/v1.0/topology/hosts".format(RYU_REST_URL))
 
         switches_resp.raise_for_status()
