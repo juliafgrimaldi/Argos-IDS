@@ -358,7 +358,7 @@ class ControllerAPI(app_manager.RyuApp):
                     flows_filtered_volumetric += 1
                     continue
 
-                if self.is_flow_processed_by_hash(flow_hash):
+                if self.is_flow_processed(flow_hash):
                     self.logger.info("Fluxo {} já processado. Ignorando.".format(flow_hash))
                     continue  
 
