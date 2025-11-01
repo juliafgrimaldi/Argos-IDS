@@ -275,6 +275,21 @@ class ControllerAPI(app_manager.RyuApp):
             except Exception as e:
                 self.logger.error(f"Erro no monitoramento: {e}")
 
+    def is_flow_processed(self, flow_id, ip_src, ip_dst):
+        try:
+            conn = sqlite3.connect("traffic.db")
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT COUNT(*) FROM flows WHERE flow_id = ? AND ip_src = ? AND ip_dst = ? AND processed = 1
+            """, (flow_id, ip_src, ip_dst))
+            result = cursor.fetchone()[0]
+            conn.close()
+
+            return result > 0  
+        except Exception as e:
+            self.logger.error(f"Erro ao verificar fluxo no banco: {e}")
+            return False
+
     def collect_and_store_stats(self, dpid):
         try:
             self.logger.info("Coletando stats do DPID {}".format(dpid))
@@ -334,6 +349,10 @@ class ControllerAPI(app_manager.RyuApp):
                     continue
 
                 flow_id = "{}{}{}{}{}".format(ip_src, tp_src, ip_dst, tp_dst, ip_proto)
+
+                if self.is_flow_processed(flow_id, ip_src, ip_dst):
+                    self.logger.info("Fluxo {} já processado. Ignorando".format(flow_id))
+                    continue 
 
                 rows.append({
                     'timestamp': current_time,
@@ -511,7 +530,7 @@ class ControllerAPI(app_manager.RyuApp):
                 is_malicious = not is_normal   
                 confidence_score = self._calculate_confidence_score(predictions, i) if len(predictions) > 1 else float(pred)
                 
-                self.save_flow(row, is_normal, confidence_score)
+                self.save_flow(row, is_normal, confidence_score, label=True)
                 
                 if is_malicious:
                     blocked_count += 1
