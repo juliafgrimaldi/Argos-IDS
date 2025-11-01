@@ -97,9 +97,9 @@ class ControllerAPI(app_manager.RyuApp):
             byte_count_per_second REAL,
             byte_count_per_nsecond REAL,
             prediction_score REAL,
-            label BOOLEAN
-            processed BOOLEAN
-            flow_hash INTEGER           
+            label BOOLEAN,,
+            processed BOOLEAN,
+            flow_hash TEXT           
         )
         """)
         conn.commit()
@@ -366,7 +366,7 @@ class ControllerAPI(app_manager.RyuApp):
 
                 flow_id = "{}{}{}{}{}".format(ip_src, tp_src, ip_dst, tp_dst, ip_proto)
 
-                if self.is_flow_processed(flow_id, ip_src, ip_dst):
+                if self.is_flow_processed(flow_hash):
                     self.logger.info("Fluxo {} já processado. Ignorando".format(flow_id))
                     continue 
 
