@@ -97,7 +97,7 @@ class ControllerAPI(app_manager.RyuApp):
             byte_count_per_second REAL,
             byte_count_per_nsecond REAL,
             prediction_score REAL,
-            label BOOLEAN,,
+            label BOOLEAN,
             processed BOOLEAN,
             flow_hash TEXT           
         )
