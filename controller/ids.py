@@ -546,7 +546,7 @@ class ControllerAPI(app_manager.RyuApp):
                 is_malicious = not is_normal   
                 confidence_score = self._calculate_confidence_score(predictions, i) if len(predictions) > 1 else float(pred)
                 
-                self.save_flow(row, is_normal, confidence_score, processed=True)
+                self.save_flow(row, is_normal, confidence_score)
                 
                 if is_malicious:
                     blocked_count += 1
