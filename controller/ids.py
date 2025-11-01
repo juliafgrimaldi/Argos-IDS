@@ -410,15 +410,14 @@ class ControllerAPI(app_manager.RyuApp):
 
             time_column = 'timestamp' if 'timestamp' in df.columns else 'time'
             
-            self.logger.info("DEBUG: last_processed_time={:.2f}, max timestamp no CSV={:.2f}".format(
-                self.last_processed_time, df[time_column].max() if not df.empty else 0
-            ))
             
             df_unprocessed = df[df[time_column] > self.last_processed_time].copy()
-            
+
             if df_unprocessed.empty:
-                self.logger.info("Nenhum tráfego novo (last_processed={:.2f})".format(self.last_processed_time))
+                self.logger.info("Nenhum tráfego novo para predição")
                 return
+            
+            self.last_processed_time = df_unprocessed[time_column].max()
 
             processing_start_time = time.time()
             
