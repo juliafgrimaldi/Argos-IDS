@@ -1,6 +1,7 @@
 import pickle
 import os
 import time
+import hashlib
 import requests
 import pandas as pd
 import numpy as np
@@ -118,6 +119,8 @@ class ControllerAPI(app_manager.RyuApp):
         try:
             conn = sqlite3.connect("traffic.db")
             cursor = conn.cursor()
+
+            flow_hash = self.generate_flow_hash(row['ip_src'], row['ip_dst'], row['tp_src'], row['tp_dst'], row['ip_proto'])
             
             cursor.execute("""
             INSERT INTO flows (
@@ -126,8 +129,8 @@ class ControllerAPI(app_manager.RyuApp):
                 idle_timeout, hard_timeout, flags, packet_count, byte_count,
                 packet_count_per_second, packet_count_per_nsecond,
                 byte_count_per_second, byte_count_per_nsecond,
-                prediction_score, label
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                prediction_score, label, processed, flow_hash
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 self._safe_float(row.get("timestamp", time.time())),
                 self._safe_int(row.get("datapath_id")),
@@ -151,7 +154,9 @@ class ControllerAPI(app_manager.RyuApp):
                 self._safe_float(row.get("byte_count_per_second")),
                 self._safe_float(row.get("byte_count_per_nsecond")),
                 float(prediction_score),
-                1 if label else 0
+                1 if label else 0,
+                True,  
+                flow_hash
             ))
 
             conn.commit()
@@ -275,13 +280,17 @@ class ControllerAPI(app_manager.RyuApp):
             except Exception as e:
                 self.logger.error(f"Erro no monitoramento: {e}")
 
-    def is_flow_processed(self, flow_id, ip_src, ip_dst):
+    def generate_flow_hash(self, ip_src, ip_dst, tp_src, tp_dst, ip_proto):
+        flow_string = f"{ip_src}-{ip_dst}-{tp_src}-{tp_dst}-{ip_proto}"
+        return hashlib.sha256(flow_string.encode()).hexdigest()
+
+    def is_flow_processed(self, flow_hash):
         try:
             conn = sqlite3.connect("traffic.db")
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT COUNT(*) FROM flows WHERE flow_id = ? AND ip_src = ? AND ip_dst = ? AND processed = 1
-            """, (flow_id, ip_src, ip_dst))
+                SELECT COUNT(*) FROM flows WHERE flow_hash = ? AND ip_src = ? AND processed = 1
+            """, (flow_hash,))
             result = cursor.fetchone()[0]
             conn.close()
 
@@ -312,6 +321,7 @@ class ControllerAPI(app_manager.RyuApp):
                 ip_dst = match.get('ipv4_dst', match.get('nw_dst', '0.0.0.0'))
                 if ip_src != '0.0.0.0' and ip_dst != '0.0.0.0':
                     flows_with_ip += 1
+                flow_hash = self.generate_flow_hash(ip_src, ip_dst, stat.get('tp_src', 0), stat.get('tp_dst', 0), stat.get('ip_proto', 0))
                 tp_src = match.get('tcp_src', match.get('tcp_src', match.get('tp_src', 0)))
                 tp_dst = match.get('tcp_dst', match.get('tcp_dst', match.get('tp_dst', 0)))
                 ip_proto = match.get('ip_proto', match.get('nw_proto', 0))
@@ -347,6 +357,10 @@ class ControllerAPI(app_manager.RyuApp):
                     self.block_traffic(dpid, ip_src, ip_dst, in_port)
                     flows_filtered_volumetric += 1
                     continue
+
+                if self.is_flow_processed_by_hash(flow_hash):
+                    self.logger.info("Fluxo {} já processado. Ignorando.".format(flow_hash))
+                    continue  
 
                 flow_id = "{}{}{}{}{}".format(ip_src, tp_src, ip_dst, tp_dst, ip_proto)
 
