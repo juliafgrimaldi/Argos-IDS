@@ -291,7 +291,7 @@ class ControllerAPI(app_manager.RyuApp):
             conn = sqlite3.connect("traffic.db")
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT COUNT(*) FROM flows WHERE flow_hash = ? AND ip_src = ? AND processed = 1
+                SELECT COUNT(*) FROM flows WHERE flow_hash = ? AND processed = True
             """, (flow_hash,))
             result = cursor.fetchone()[0]
             conn.close()
@@ -546,7 +546,7 @@ class ControllerAPI(app_manager.RyuApp):
                 is_malicious = not is_normal   
                 confidence_score = self._calculate_confidence_score(predictions, i) if len(predictions) > 1 else float(pred)
                 
-                self.save_flow(row, is_normal, confidence_score, label=True)
+                self.save_flow(row, is_normal, confidence_score, processed=True)
                 
                 if is_malicious:
                     blocked_count += 1
