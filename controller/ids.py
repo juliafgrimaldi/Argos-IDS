@@ -98,6 +98,8 @@ class ControllerAPI(app_manager.RyuApp):
             byte_count_per_nsecond REAL,
             prediction_score REAL,
             label BOOLEAN
+            processed BOOLEAN
+            flow_hash INTEGER           
         )
         """)
         conn.commit()
