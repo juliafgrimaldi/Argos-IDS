@@ -122,7 +122,9 @@ class ControllerAPI(app_manager.RyuApp):
             conn = sqlite3.connect("traffic.db")
             cursor = conn.cursor()
 
-            flow_hash = self.generate_flow_hash(row['ip_src'], row['ip_dst'], row['tp_src'], row['tp_dst'], row['ip_proto'])
+            flow_hash = row.get('flow_hash', self.generate_flow_hash(
+                row['ip_src'], row['ip_dst'], row['tp_src'], row['tp_dst'], row['ip_proto']
+            ))
             
             cursor.execute("""
             INSERT INTO flows (
@@ -156,9 +158,10 @@ class ControllerAPI(app_manager.RyuApp):
                 self._safe_float(row.get("byte_count_per_second")),
                 self._safe_float(row.get("byte_count_per_nsecond")),
                 float(prediction_score),
-                1 if label else 0,
-                True,  
-                flow_hash
+                1 if label else 0,  
+                flow_hash,
+                self._safe_int(row.get("packet_count")),  # Salvar contadores atuais
+                self._safe_int(row.get("byte_count"))
             ))
 
             conn.commit()
@@ -286,20 +289,24 @@ class ControllerAPI(app_manager.RyuApp):
         flow_string = f"{ip_src}-{ip_dst}-{tp_src}-{tp_dst}-{ip_proto}"
         return hashlib.sha256(flow_string.encode()).hexdigest()
 
-    def is_flow_processed(self, flow_hash):
-        try:
-            conn = sqlite3.connect("traffic.db")
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT COUNT(*) FROM flows WHERE flow_hash = ? AND processed = True
-            """, (flow_hash,))
-            result = cursor.fetchone()[0]
-            conn.close()
-
-            return result > 0  
-        except Exception as e:
-            self.logger.error(f"Erro ao verificar fluxo no banco: {e}")
-            return False
+    def is_flow_updated(self, flow_hash, packet_count, byte_count):
+        if flow_hash not in self.flow_last_seen:
+            return True
+    
+        last_state = self.flow_last_seen[flow_hash]
+    
+        if (packet_count > last_state['packet_count'] or 
+            byte_count > last_state['byte_count']):
+            return True
+    
+        return False
+        
+    def update_flow_state(self, flow_hash, packet_count, byte_count, timestamp):
+        self.flow_last_seen[flow_hash] = {
+            'packet_count': packet_count,
+            'byte_count': byte_count,
+            'timestamp': timestamp
+        }
 
     def collect_and_store_stats(self, dpid):
         try:
@@ -315,6 +322,7 @@ class ControllerAPI(app_manager.RyuApp):
             flows_with_ip = 0
             flows_filtered_empty = 0
             flows_filtered_volumetric = 0
+            flows_skipped_no_update = 0
 
             for stat in flow_stats:
                 match = stat.get('match', {})
@@ -323,7 +331,6 @@ class ControllerAPI(app_manager.RyuApp):
                 ip_dst = match.get('ipv4_dst', match.get('nw_dst', '0.0.0.0'))
                 if ip_src != '0.0.0.0' and ip_dst != '0.0.0.0':
                     flows_with_ip += 1
-                flow_hash = self.generate_flow_hash(ip_src, ip_dst, stat.get('tp_src', 0), stat.get('tp_dst', 0), stat.get('ip_proto', 0))
                 tp_src = match.get('tcp_src', match.get('tcp_src', match.get('tp_src', 0)))
                 tp_dst = match.get('tcp_dst', match.get('tcp_dst', match.get('tp_dst', 0)))
                 ip_proto = match.get('ip_proto', match.get('nw_proto', 0))
@@ -338,6 +345,15 @@ class ControllerAPI(app_manager.RyuApp):
                 idle_timeout = stat.get('idle_timeout', 0)
                 hard_timeout = stat.get('hard_timeout', 0)
                 flags = stat.get('flags', 0)
+
+                flow_hash = self.generate_flow_hash(ip_src, ip_dst, tp_src, tp_dst, ip_proto)
+
+                if not self.is_flow_updated(flow_hash, packet_count, byte_count):
+                    flows_skipped_no_update += 1
+                    self.logger.debug("Fluxo {} não teve mudanças (packets={}, bytes={})".format(
+                        flow_hash[:16], packet_count, byte_count
+                    ))
+                    continue
 
                 total_duration_sec = duration_sec + (duration_nsec / 1e9)
                 
@@ -360,20 +376,15 @@ class ControllerAPI(app_manager.RyuApp):
                     flows_filtered_volumetric += 1
                     continue
 
-                if self.is_flow_processed(flow_hash):
-                    self.logger.info("Fluxo {} já processado. Ignorando.".format(flow_hash))
-                    continue  
-
                 flow_id = "{}{}{}{}{}".format(ip_src, tp_src, ip_dst, tp_dst, ip_proto)
 
-                if self.is_flow_processed(flow_hash):
-                    self.logger.info("Fluxo {} já processado. Ignorando".format(flow_id))
-                    continue 
+                self.update_flow_state(flow_hash, packet_count, byte_count, current_time)
 
                 rows.append({
                     'timestamp': current_time,
                     'datapath_id': dpid,
                     'flow_id': flow_id,
+                    'flow_hash': flow_hash,
                     'ip_src': ip_src,
                     'tp_src': tp_src,
                     'ip_dst': ip_dst,
