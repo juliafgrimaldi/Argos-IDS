@@ -51,6 +51,7 @@ class ControllerAPI(app_manager.RyuApp):
             self.logger.info("IDS iniciado em timestamp: {}".format(self.start_time))
             
             self.total_flows_processed = 0
+            self.flow_last_seen = {}
 
             self.classification_threshold = 0.5
             
