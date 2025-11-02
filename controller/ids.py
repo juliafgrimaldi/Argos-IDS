@@ -349,12 +349,12 @@ class ControllerAPI(app_manager.RyuApp):
 
                 flow_hash = self.generate_flow_hash(ip_src, ip_dst, tp_src, tp_dst, ip_proto)
 
-                if not self.is_flow_updated(flow_hash, packet_count, byte_count):
-                    flows_skipped_no_update += 1
-                    self.logger.debug("Fluxo {} não teve mudanças (packets={}, bytes={})".format(
-                        flow_hash[:16], packet_count, byte_count
-                    ))
-                    continue
+                #if not self.is_flow_updated(flow_hash, packet_count, byte_count):
+                #    flows_skipped_no_update += 1
+                #    self.logger.debug("Fluxo {} não teve mudanças (packets={}, bytes={})".format(
+                #        flow_hash[:16], packet_count, byte_count
+                #    ))
+                #    continue
 
                 total_duration_sec = duration_sec + (duration_nsec / 1e9)
                 
