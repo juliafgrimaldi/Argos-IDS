@@ -464,10 +464,6 @@ class ControllerAPI(app_manager.RyuApp):
                 self.logger.info("Nenhum tráfego novo para predição")
                 return
             
-            self.last_processed_time = df_unprocessed[time_column].max()
-
-            processing_start_time = time.time()
-            
             self.logger.info("PROCESSANDO {} NOVOS FLUXOS (timestamps: {:.2f} a {:.2f})".format(
                 len(df_unprocessed),
                 df_unprocessed[time_column].min(),
@@ -567,7 +563,7 @@ class ControllerAPI(app_manager.RyuApp):
                     ))
                     self.block_traffic(row['datapath_id'], row['ip_src'], row['ip_dst'], 0)
 
-            self.last_processed_time = processing_start_time
+            self.last_processed_time = df_unprocessed[time_column].max()
             self.total_flows_processed += len(df_unprocessed)
             
             self.logger.info("Timestamp de processamento atualizado para: {:.2f} (total acumulado: {})".format(
