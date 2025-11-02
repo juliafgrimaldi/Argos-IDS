@@ -29,8 +29,10 @@ class SimpleSwitch13L3(app_manager.RyuApp):
         # 'L2' - apenas MAC (padrão simple_switch)
         # 'L3' - IP src/dst
         # 'L4' - IP + portas TCP/UDP
-        self.flow_match_type = 'L3'  # Altere aqui: 'L2', 'L3', ou 'L4'
-        
+        self.flow_match_type = 'L4'  # Altere aqui: 'L2', 'L3', ou 'L4'
+        self.PRIO_L2 = 1
+        self.PRIO_L3 = 10
+        self.PRIO_L4 = 20
         # NOVO: Estatísticas Layer 3
         self.flow_stats = defaultdict(lambda: {
             'first_seen': 0.0,
@@ -58,20 +60,25 @@ class SimpleSwitch13L3(app_manager.RyuApp):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
+        mod = parser.OFPFlowMod(datapath=datapath, command=ofproto.OFPFC_DELETE,
+                            out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY)
+        datapath.send_msg(mod)
+        datapath.send_msg(parser.OFPBarrierRequest(datapath))
+
         # Instalar table-miss flow entry
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None, idle_timeout=0, hard_timeout=0):
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None, idle_timeout=30, hard_timeout=0):
         """Adiciona flow (igual ao simple_switch_13 original)"""
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
-        if buffer_id:
+        if buffer_id is not None:
             mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
                                     priority=priority, match=match,
                                     instructions=inst,
@@ -140,7 +147,7 @@ class SimpleSwitch13L3(app_manager.RyuApp):
                     'ipv4_src': ip_pkt_temp.src,
                     'ipv4_dst': ip_pkt_temp.dst
                 }
-                
+                prio = self.PRIO_L4 if self.flow_match_type == 'L4' else self.PRIO_L3
                 # Se L4, adicionar portas TCP/UDP
                 if self.flow_match_type == 'L4':
                     tcp_pkt_temp = pkt.get_protocol(tcp.tcp)
@@ -172,14 +179,15 @@ class SimpleSwitch13L3(app_manager.RyuApp):
             else:
                 # Flow Layer 2 (apenas MACs) - fallback
                 match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+                prio = self.PRIO_L2
                 self.logger.debug("Installing L2 flow: %s -> %s", src, dst)
             
             # Install flow
             if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                self.add_flow(datapath, prio, match, actions, msg.buffer_id, idle_timeout=30, hard_timeout=0)
                 return
             else:
-                self.add_flow(datapath, 1, match, actions)
+                self.add_flow(datapath, prio, match, actions, idle_timeout=30, hard_timeout=0)
         
         # ========== NOVO: CAPTURA LAYER 3 ==========
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
