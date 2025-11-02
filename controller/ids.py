@@ -64,6 +64,7 @@ class ControllerAPI(app_manager.RyuApp):
 
             self._load_models()
             self._initialize_csv()
+            self._initialize_last_processed_time()
             self._initialize_db()
             self.monitor_thread = hub.spawn(self._monitor)
             self.logger.info("ControllerAPI inicializou com sucesso")
@@ -105,6 +106,18 @@ class ControllerAPI(app_manager.RyuApp):
         """)
         conn.commit()
         conn.close()
+
+    def _initialize_last_processed_time(self):
+        self.last_processed_time = 0.0
+        try:
+            if os.path.exists(self.filename):
+                df = pd.read_csv(self.filename)
+                col = 'timestamp' if 'timestamp' in df.columns else ('time' if 'time' in df.columns else None)
+                if col and not df.empty:
+                    self.last_processed_time = float(pd.to_numeric(df[col], errors='coerce').max())
+        except Exception as e:
+            self.logger.warning(f"Não foi possivel inicializar last_processed_time: {e}")
+
 
     def _safe_int(self, val, default=0):
         try:
@@ -391,7 +404,7 @@ class ControllerAPI(app_manager.RyuApp):
                     'ip_dst': ip_dst,
                     'tp_dst': tp_dst,
                     'ip_proto': ip_proto,
-                    'icmc_code': icmp_code,
+                    'icmp_code': icmp_code,
                     'icmp_type': icmp_type,
                     'flow_duration_sec': duration_sec,
                     'flow_duration_nsec': duration_nsec,
@@ -563,7 +576,7 @@ class ControllerAPI(app_manager.RyuApp):
                     ))
                     self.block_traffic(row['datapath_id'], row['ip_src'], row['ip_dst'], 0)
 
-            self.last_processed_time = df_unprocessed[time_column].max()
+            self.last_processed_time =  float(df_unprocessed[time_column].max())
             self.total_flows_processed += len(df_unprocessed)
             
             self.logger.info("Timestamp de processamento atualizado para: {:.2f} (total acumulado: {})".format(
