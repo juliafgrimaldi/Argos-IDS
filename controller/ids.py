@@ -148,7 +148,7 @@ class ControllerAPI(app_manager.RyuApp):
                 packet_count_per_second, packet_count_per_nsecond,
                 byte_count_per_second, byte_count_per_nsecond,
                 prediction_score, label, processed, flow_hash
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 self._safe_float(row.get("timestamp", time.time())),
                 self._safe_int(row.get("datapath_id")),
@@ -173,9 +173,8 @@ class ControllerAPI(app_manager.RyuApp):
                 self._safe_float(row.get("byte_count_per_nsecond")),
                 float(prediction_score),
                 1 if label else 0,  
-                flow_hash,
-                self._safe_int(row.get("packet_count")),  # Salvar contadores atuais
-                self._safe_int(row.get("byte_count"))
+                1,
+                str(flow_hash)
             ))
 
             conn.commit()
@@ -257,7 +256,7 @@ class ControllerAPI(app_manager.RyuApp):
 
     def _initialize_csv(self):
         columns = [
-            'timestamp', 'datapath_id', 'flow_id', 'ip_src', 'tp_src', 
+            'timestamp', 'datapath_id', 'flow_id', 'flow_hash', 'ip_src', 'tp_src', 
             'ip_dst', 'tp_dst', 'ip_proto', 'icmp_code', 'icmp_type',
             'flow_duration_sec', 'flow_duration_nsec', 'idle_timeout',
             'hard_timeout', 'flags', 'packet_count', 'byte_count',
@@ -552,12 +551,12 @@ class ControllerAPI(app_manager.RyuApp):
                 final_predictions = predictions[model_name]
                 self.logger.info("Usando apenas modelo: {}".format(model_name))
 
-            total_malicious = sum(final_predictions)
-            total_flows = len(final_predictions)
-            percentage_malicious = (total_malicious/total_flows)*100 if total_flows > 0 else 0
-            self.logger.info("RESULTADO FINAL: {} fluxos maliciosos de {} total ({:.1f}%)".format(
-                total_malicious, total_flows, percentage_malicious
-            ))
+            arr = np.array(final_predictions)
+            num_malicious = np.count_nonzero(arr == 0)
+            total_flows = len(arr)
+            percentage_malicious = (num_malicious/total_flows)*100 if total_flows > 0 else 0
+            self.logger.info(f"RESULTADO FINAL: {num_malicious} fluxos maliciosos de {total_flows} total ({100*num_malicious/total_flows:.1f}%)")
+        
 
             if percentage_malicious > 80 and total_flows > 10:
                 self.logger.error("ALERTA: Taxa de detecção suspeita ({:.1f}%)!".format(percentage_malicious))
