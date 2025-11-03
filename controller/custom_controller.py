@@ -1,6 +1,6 @@
 """
-Simple Switch 13 modificado para capturar dados Layer 3
-Baseado no simple_switch_13.py oficial do Ryu
+Simple Switch 13 modificado para capturar dados Layer 3 e 4
+Compatível com pingall e iperf
 """
 
 from ryu.base import app_manager
@@ -9,8 +9,7 @@ from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet, ether_types
-from ryu.lib.packet import ipv4, tcp, udp, icmp
+from ryu.lib.packet import ethernet, ether_types, ipv4, tcp, udp, icmp, arp
 from ryu.lib import hub
 import time
 from collections import defaultdict
@@ -21,19 +20,18 @@ class SimpleSwitch13L3(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13L3, self).__init__(*args, **kwargs)
-        
-        # Tabela MAC (igual ao simple_switch_13 original)
+
+        # === Configurações gerais ===
         self.mac_to_port = {}
-        
-        # CONFIGURAÇÃO: Tipo de flow a instalar
-        # 'L2' - apenas MAC (padrão simple_switch)
-        # 'L3' - IP src/dst
-        # 'L4' - IP + portas TCP/UDP
-        self.flow_match_type = 'L4'  # Altere aqui: 'L2', 'L3', ou 'L4'
+        self.flow_match_type = 'L4'  # L2 / L3 / L4
         self.PRIO_L2 = 1
+        self.PRIO_ARP = 5
         self.PRIO_L3 = 10
         self.PRIO_L4 = 20
-        # NOVO: Estatísticas Layer 3
+        self.IDLE_TIMEOUT = 30
+        self.HARD_TIMEOUT = 0
+
+        # Estatísticas
         self.flow_stats = defaultdict(lambda: {
             'first_seen': 0.0,
             'last_seen': 0.0,
@@ -46,65 +44,61 @@ class SimpleSwitch13L3(app_manager.RyuApp):
             'tp_dst': 0,
             'ip_proto': 0
         })
-        
-        # Thread para relatórios (opcional)
-        self.report_interval = 30  # Relatório a cada 30s
+
+        # Thread opcional de relatório
+        self.report_interval = 30
         self.monitor_thread = hub.spawn(self._monitor)
-        
-        self.logger.info("Simple Switch 13 L3 iniciado (flow_match_type=%s)", self.flow_match_type)
+
+        self.logger.info("✅ SimpleSwitch13L3 iniciado (match_type=%s)", self.flow_match_type)
+
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
-        """Handler padrão do simple_switch_13"""
         datapath = ev.msg.datapath
-        ofproto = datapath.ofproto
+        ofp = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        mod = parser.OFPFlowMod(datapath=datapath, command=ofproto.OFPFC_DELETE,
-                            out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY)
+        mod = parser.OFPFlowMod(
+            datapath=datapath,
+            command=ofp.OFPFC_DELETE,
+            out_port=ofp.OFPP_ANY,
+            out_group=ofp.OFPG_ANY
+        )
         datapath.send_msg(mod)
-        datapath.send_msg(parser.OFPBarrierRequest(datapath))
 
-        # Instalar table-miss flow entry
         match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
-                                          ofproto.OFPCML_NO_BUFFER)]
-        self.add_flow(datapath, 0, match, actions)
+        actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER, ofp.OFPCML_NO_BUFFER)]
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)]
+        fm = parser.OFPFlowMod(datapath=datapath, priority=0, match=match, instructions=inst)
+        datapath.send_msg(fm)
 
-    def add_flow(self, datapath, priority, match, actions, buffer_id=None, idle_timeout=30, hard_timeout=0):
-        """Adiciona flow (igual ao simple_switch_13 original)"""
-        ofproto = datapath.ofproto
+        self.logger.info("✅ Table-miss reinstalada para DPID %s", datapath.id)
+
+
+    def add_flow(self, datapath, priority, match, actions,
+                 buffer_id=None, idle_timeout=30, hard_timeout=0):
         parser = datapath.ofproto_parser
+        ofp = datapath.ofproto
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, actions)]
 
-        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
-                                             actions)]
         if buffer_id is not None:
-            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
-                                    priority=priority, match=match,
-                                    instructions=inst,
-                                    idle_timeout=idle_timeout,
-                                    hard_timeout=hard_timeout)
+            mod = parser.OFPFlowMod(
+                datapath=datapath, buffer_id=buffer_id,
+                priority=priority, match=match, instructions=inst,
+                idle_timeout=idle_timeout, hard_timeout=hard_timeout)
         else:
-            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                    match=match, instructions=inst,
-                                    idle_timeout=idle_timeout,
-                                    hard_timeout=hard_timeout)
+            mod = parser.OFPFlowMod(
+                datapath=datapath, priority=priority,
+                match=match, instructions=inst,
+                idle_timeout=idle_timeout, hard_timeout=hard_timeout)
         datapath.send_msg(mod)
+
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-        """
-        Handler modificado do simple_switch_13:
-        - Mantém funcionalidade de learning switch
-        - ADICIONA: Captura de dados Layer 3
-        """
-        if ev.msg.msg_len < ev.msg.total_len:
-            self.logger.debug("packet truncated: only %s of %s bytes",
-                            ev.msg.msg_len, ev.msg.total_len)
-        
         msg = ev.msg
         datapath = msg.datapath
-        ofproto = datapath.ofproto
+        ofp = datapath.ofproto
         parser = datapath.ofproto_parser
         in_port = msg.match['in_port']
 
@@ -112,203 +106,175 @@ class SimpleSwitch13L3(app_manager.RyuApp):
         eth = pkt.get_protocol(ethernet.ethernet)
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            # ignore lldp packet
             return
-        
+
         dst = eth.dst
         src = eth.src
-
         dpid = format(datapath.id, "d").zfill(16)
         self.mac_to_port.setdefault(dpid, {})
-
-        # ========== PARTE ORIGINAL: MAC LEARNING ==========
-        # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
 
+        arp_pkt = pkt.get_protocol(arp.arp)
+        if arp_pkt:
+            if dst in self.mac_to_port[dpid]:
+                out_port = self.mac_to_port[dpid][dst]
+            else:
+                out_port = ofp.OFPP_FLOOD
+
+            actions = [parser.OFPActionOutput(out_port)]
+            match_arp = parser.OFPMatch(
+                eth_type=0x0806,
+                arp_spa=arp_pkt.src_ip,
+                arp_tpa=arp_pkt.dst_ip
+            )
+
+            if msg.buffer_id != ofp.OFP_NO_BUFFER:
+                self.add_flow(datapath, self.PRIO_ARP, match_arp, actions,
+                              msg.buffer_id, idle_timeout=self.IDLE_TIMEOUT)
+                return
+            else:
+                self.add_flow(datapath, self.PRIO_ARP, match_arp, actions,
+                              idle_timeout=self.IDLE_TIMEOUT)
+
+            data = None if msg.buffer_id != ofp.OFP_NO_BUFFER else msg.data
+            out = parser.OFPPacketOut(datapath=datapath,
+                                      buffer_id=msg.buffer_id,
+                                      in_port=in_port,
+                                      actions=actions,
+                                      data=data)
+            datapath.send_msg(out)
+            return
+
+        # ------------------------------------------------------------------
+        # 🔹 2) Learning-switch básico L2
+        # ------------------------------------------------------------------
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
         else:
-            out_port = ofproto.OFPP_FLOOD
+            out_port = ofp.OFPP_FLOOD
 
         actions = [parser.OFPActionOutput(out_port)]
 
-        # install a flow to avoid packet_in next time
-        if out_port != ofproto.OFPP_FLOOD:
-            match = None
-            
-            # Extrair informações IP se disponível
-            ip_pkt_temp = pkt.get_protocol(ipv4.ipv4)
-            
-            if ip_pkt_temp and self.flow_match_type in ['L3', 'L4']:
-                # Base: Flow Layer 3 (com IPs)
-                match_fields = {
-                    'in_port': in_port,
-                    'eth_type': ether_types.ETH_TYPE_IP,
-                    'ipv4_src': ip_pkt_temp.src,
-                    'ipv4_dst': ip_pkt_temp.dst
-                }
-                prio = self.PRIO_L4 if self.flow_match_type == 'L4' else self.PRIO_L3
-                # Se L4, adicionar portas TCP/UDP
-                if self.flow_match_type == 'L4':
-                    tcp_pkt_temp = pkt.get_protocol(tcp.tcp)
-                    udp_pkt_temp = pkt.get_protocol(udp.udp)
-                    
-                    if tcp_pkt_temp:
-                        match_fields['ip_proto'] = 6  # TCP
-                        match_fields['tcp_src'] = tcp_pkt_temp.src_port
-                        match_fields['tcp_dst'] = tcp_pkt_temp.dst_port
-                        self.logger.debug("Installing L4 flow: %s:%d -> %s:%d [TCP]",
-                                        ip_pkt_temp.src, tcp_pkt_temp.src_port,
-                                        ip_pkt_temp.dst, tcp_pkt_temp.dst_port)
-                    elif udp_pkt_temp:
-                        match_fields['ip_proto'] = 17  # UDP
-                        match_fields['udp_src'] = udp_pkt_temp.src_port
-                        match_fields['udp_dst'] = udp_pkt_temp.dst_port
-                        self.logger.debug("Installing L4 flow: %s:%d -> %s:%d [UDP]",
-                                        ip_pkt_temp.src, udp_pkt_temp.src_port,
-                                        ip_pkt_temp.dst, udp_pkt_temp.dst_port)
-                    else:
-                        # ICMP ou outro protocolo - apenas L3
-                        self.logger.debug("Installing L3 flow: %s -> %s [proto=%d]",
-                                        ip_pkt_temp.src, ip_pkt_temp.dst, ip_pkt_temp.proto)
+        # ------------------------------------------------------------------
+        # 🔹 3) Match e instalação de flows L3/L4
+        # ------------------------------------------------------------------
+        ip_pkt_temp = pkt.get_protocol(ipv4.ipv4)
+        match = None
+
+        if ip_pkt_temp:
+            match_fields = {
+                'in_port': in_port,
+                'eth_type': ether_types.ETH_TYPE_IP,
+                'ipv4_src': ip_pkt_temp.src,
+                'ipv4_dst': ip_pkt_temp.dst
+            }
+            prio = self.PRIO_L4 if self.flow_match_type == 'L4' else self.PRIO_L3
+
+            if self.flow_match_type == 'L4':
+                tcp_pkt_temp = pkt.get_protocol(tcp.tcp)
+                udp_pkt_temp = pkt.get_protocol(udp.udp)
+                if tcp_pkt_temp:
+                    match_fields['ip_proto'] = 6
+                    match_fields['tcp_src'] = tcp_pkt_temp.src_port
+                    match_fields['tcp_dst'] = tcp_pkt_temp.dst_port
+                elif udp_pkt_temp:
+                    match_fields['ip_proto'] = 17
+                    match_fields['udp_src'] = udp_pkt_temp.src_port
+                    match_fields['udp_dst'] = udp_pkt_temp.dst_port
                 else:
-                    self.logger.debug("Installing L3 flow: %s -> %s",
-                                    ip_pkt_temp.src, ip_pkt_temp.dst)
-                
-                match = parser.OFPMatch(**match_fields)
-            else:
-                # Flow Layer 2 (apenas MACs) - fallback
-                match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
-                prio = self.PRIO_L2
-                self.logger.debug("Installing L2 flow: %s -> %s", src, dst)
-            
-            # Install flow
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, prio, match, actions, msg.buffer_id, idle_timeout=30, hard_timeout=0)
-                return
-            else:
-                self.add_flow(datapath, prio, match, actions, idle_timeout=30, hard_timeout=0)
-        
-        # ========== NOVO: CAPTURA LAYER 3 ==========
+                    prio = self.PRIO_L3
+
+            match = parser.OFPMatch(**match_fields)
+        else:
+            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+            prio = self.PRIO_L2
+
+        # Instala flow
+        if msg.buffer_id != ofp.OFP_NO_BUFFER:
+            self.add_flow(datapath, prio, match, actions,
+                          msg.buffer_id, idle_timeout=self.IDLE_TIMEOUT)
+            return
+        else:
+            self.add_flow(datapath, prio, match, actions,
+                          idle_timeout=self.IDLE_TIMEOUT)
+
+        # ------------------------------------------------------------------
+        # 🔹 4) Atualiza estatísticas (captura L3)
+        # ------------------------------------------------------------------
         ip_pkt = pkt.get_protocol(ipv4.ipv4)
-        
         if ip_pkt:
             ip_src = ip_pkt.src
             ip_dst = ip_pkt.dst
             ip_proto = ip_pkt.proto
-            
-            tp_src = 0
-            tp_dst = 0
-            
+            tp_src = tp_dst = 0
+
             tcp_pkt = pkt.get_protocol(tcp.tcp)
             udp_pkt = pkt.get_protocol(udp.udp)
             icmp_pkt = pkt.get_protocol(icmp.icmp)
-            
+
             if tcp_pkt:
-                tp_src = tcp_pkt.src_port
-                tp_dst = tcp_pkt.dst_port
+                tp_src, tp_dst = tcp_pkt.src_port, tcp_pkt.dst_port
             elif udp_pkt:
-                tp_src = udp_pkt.src_port
-                tp_dst = udp_pkt.dst_port
+                tp_src, tp_dst = udp_pkt.src_port, udp_pkt.dst_port
             elif icmp_pkt:
-                tp_src = icmp_pkt.type
-                tp_dst = icmp_pkt.code
-            
-            # Criar chave do flow
-            flow_key = (ip_src, ip_dst, ip_proto, tp_src, tp_dst)
-            
-            # Atualizar estatísticas
-            st = self.flow_stats[flow_key]
+                tp_src, tp_dst = icmp_pkt.type, icmp_pkt.code
+
+            key = (ip_src, ip_dst, ip_proto, tp_src, tp_dst)
+            st = self.flow_stats[key]
             now = time.time()
-            
             if st['first_seen'] == 0.0:
-                st['first_seen'] = now
-                st['datapath_id'] = datapath.id
-                st['ip_src'] = ip_src
-                st['ip_dst'] = ip_dst
-                st['tp_src'] = tp_src
-                st['tp_dst'] = tp_dst
-                st['ip_proto'] = ip_proto
-                
-                # Log de novo flow
-                proto_name = {1: 'ICMP', 6: 'TCP', 17: 'UDP'}.get(ip_proto, str(ip_proto))
-                self.logger.info("Novo flow: %s:%d -> %s:%d [%s] in_port=%d",
-                               ip_src, tp_src, ip_dst, tp_dst, proto_name, in_port)
-            
+                st.update({
+                    'first_seen': now,
+                    'datapath_id': datapath.id,
+                    'ip_src': ip_src,
+                    'ip_dst': ip_dst,
+                    'tp_src': tp_src,
+                    'tp_dst': tp_dst,
+                    'ip_proto': ip_proto
+                })
+                proto = {1: 'ICMP', 6: 'TCP', 17: 'UDP'}.get(ip_proto, str(ip_proto))
+                self.logger.info(f"Novo flow: {ip_src}:{tp_src} -> {ip_dst}:{tp_dst} [{proto}]")
             st['last_seen'] = now
             st['packet_count'] += 1
             st['byte_count'] += len(msg.data)
-            
-            # Log periódico
-            if st['packet_count'] % 100 == 0:
-                proto_name = {1: 'ICMP', 6: 'TCP', 17: 'UDP'}.get(ip_proto, str(ip_proto))
-                duration = st['last_seen'] - st['first_seen']
-                pps = st['packet_count'] / duration if duration > 0 else 0
-                
-                self.logger.info("Flow stats: %s:%d -> %s:%d [%s] | pkts=%d bytes=%d (%.2f pps)",
-                               ip_src, tp_src, ip_dst, tp_dst, proto_name,
-                               st['packet_count'], st['byte_count'], pps)
-        
-        # ========== PARTE ORIGINAL: PACKET OUT ==========
-        data = None
-        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-            data = msg.data
 
+        # ------------------------------------------------------------------
+        # 🔹 5) PacketOut (envia o pacote atual)
+        # ------------------------------------------------------------------
+        data = None if msg.buffer_id != ofp.OFP_NO_BUFFER else msg.data
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
 
+    # ----------------------------------------------------------------------
+
     def _monitor(self):
-        """Thread opcional para relatórios periódicos"""
         while True:
             hub.sleep(self.report_interval)
             self._print_report()
 
     def _print_report(self):
-        """Imprime relatório dos flows Layer 3"""
         if not self.flow_stats:
             return
-        
         flows = []
-        now = time.time()
-        
-        for key, st in self.flow_stats.items():
-            duration = max(st['last_seen'] - st['first_seen'], 1e-6)
-            pps = st['packet_count'] / duration
-            bps = st['byte_count'] / duration
-            
-            flows.append({
-                'ip_src': st['ip_src'],
-                'ip_dst': st['ip_dst'],
-                'tp_src': st['tp_src'],
-                'tp_dst': st['tp_dst'],
-                'ip_proto': st['ip_proto'],
-                'packets': st['packet_count'],
-                'bytes': st['byte_count'],
-                'pps': pps,
-                'bps': bps,
-                'duration': duration
-            })
-        
-        flows.sort(key=lambda x: x['bytes'], reverse=True)
-        
-        self.logger.info("="*70)
-        self.logger.info("FLOWS LAYER 3 - TOP 10 (por bytes)")
-        self.logger.info("="*70)
-        
+        for _, st in self.flow_stats.items():
+            dur = max(st['last_seen'] - st['first_seen'], 1e-6)
+            pps = st['packet_count'] / dur
+            bps = st['byte_count'] / dur
+            flows.append((st['ip_src'], st['tp_src'], st['ip_dst'], st['tp_dst'],
+                          st['ip_proto'], st['packet_count'], st['byte_count'], pps, bps, dur))
+        flows.sort(key=lambda x: x[6], reverse=True)
+        self.logger.info("=" * 70)
+        self.logger.info("FLOWS LAYER 3 - TOP 10")
+        self.logger.info("=" * 70)
         for i, f in enumerate(flows[:10], 1):
-            proto = {1: 'ICMP', 6: 'TCP', 17: 'UDP'}.get(f['ip_proto'], str(f['ip_proto']))
-            self.logger.info("#%d: %s:%d -> %s:%d [%s] | %d pkts, %d bytes (%.2f pps, %.2f bps) %.1fs",
-                           i, f['ip_src'], f['tp_src'], f['ip_dst'], f['tp_dst'],
-                           proto, f['packets'], f['bytes'], f['pps'], f['bps'], f['duration'])
-        
-        self.logger.info("="*70)
+            proto = {1: 'ICMP', 6: 'TCP', 17: 'UDP'}.get(f[4], str(f[4]))
+            self.logger.info(f"#{i}: {f[0]}:{f[1]} -> {f[2]}:{f[3]} [{proto}] "
+                             f"| {f[5]} pkts {f[6]} bytes ({f[7]:.2f} pps)")
         self.logger.info("Total de flows: %d", len(self.flow_stats))
+
     
     def get_flow_stats_dict(self):
-        """
-        Retorna estatísticas como dicionário (para seu IDS consumir)
-        """
         result = {}
         now = time.time()
         
