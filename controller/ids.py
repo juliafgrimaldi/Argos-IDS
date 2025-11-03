@@ -46,7 +46,7 @@ class ControllerAPI(app_manager.RyuApp):
             self.blocked_sources = {}  
             self.block_cooldown = 300 
             
-            self.last_processed_time = time.time()
+            self.last_processed_time = -1e18
             self.start_time = self.last_processed_time
             self.logger.info("IDS iniciado em timestamp: {}".format(self.start_time))
             
@@ -469,9 +469,14 @@ class ControllerAPI(app_manager.RyuApp):
                 return
 
             time_column = 'timestamp' if 'timestamp' in df.columns else 'time'
-            
-            
-            df_unprocessed = df[df[time_column] > self.last_processed_time].copy()
+            df[time_column] = pd.to_numeric(df[time_column], errors='coerce')
+
+            cur_min = float(df[time_column].min())
+            cur_max = float(df[time_column].max())
+            self.logger.info(f"[DEBUG] last_processed_time={self.last_processed_time:.2f} | csv.min={cur_min:.2f} csv.max={cur_max:.2f}")
+
+            df_unprocessed = df[df[time_column] > float(self.last_processed_time)].copy()
+            self.logger.info(f"[DEBUG] novos={len(df_unprocessed)}")
 
             if df_unprocessed.empty:
                 self.logger.info("Nenhum tráfego novo para predição")
