@@ -655,7 +655,8 @@ class ControllerAPI(app_manager.RyuApp):
     def save_block_in_db(self, dpid, ip_src, ip_dst, reason="Automatic IDS block"):
         try:
             conn = sqlite3.connect("traffic.db")
-            conn.execute("""
+            cur = conn.cursor()
+            cur.execute("""
                 CREATE TABLE IF NOT EXISTS blocked_flows (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     dpid INTEGER NOT NULL,
@@ -666,8 +667,14 @@ class ControllerAPI(app_manager.RyuApp):
                     active BOOLEAN DEFAULT 1
                 )
             """)
-            conn.execute(
-                "INSERT INTO blocked_flows (dpid, ip_src, ip_dst, timestamp, reason, active) VALUES (?, ?, ?, ?, ?, ?)",
+
+            cur.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_block
+            ON blocked_flows(dpid, ip_src, ip_dst, active)
+            """)
+
+            cur.execute(
+                "INSERT INTO blocked_flows (dpid, ip_src, ip_dst, timestamp, reason, active) VALUES (?, ?, ?, ?, ?, 1) ON CONFLICT(dpid, ip_src, ip_dst, active) DO UPDATE SET timestamp=excluded.timestamp, reason=excluded.reason", 
                 (dpid, ip_src, ip_dst, time.time(), reason, 1)
         )
             conn.commit()
@@ -685,7 +692,8 @@ class ControllerAPI(app_manager.RyuApp):
         self.logger.info("ip_src: {} (tipo: {})".format(ip_src, type(ip_src)))
         self.logger.info("ip_dst: {} (tipo: {})".format(ip_dst, type(ip_dst)))
         self.logger.info("block_url: {}".format(self.block_url))
-        if ip_src in self.blocked_sources:
+        key = (int(dpid), str(ip_src), str(ip_dst))
+        if key in self.blocked_sources:
             last_block = self.blocked_sources[ip_src]
             if time.time() - last_block < self.block_cooldown:
                 self.logger.debug("Origem {} já bloqueada recentemente".format(ip_src))
@@ -736,7 +744,7 @@ class ControllerAPI(app_manager.RyuApp):
                 self.logger.warning("   {} -> {} no switch {} (priority=65535)".format(
                     ip_src, ip_dst, dpid
                 ))
-                self.blocked_sources[ip_src] = time.time()
+                self.blocked_sources[key] = time.time()
                 self.save_block_in_db(dpid, ip_src, ip_dst, reason="IDS block")
             else:
                 self.logger.error("❌ FALHA HTTP {}: {}".format(
