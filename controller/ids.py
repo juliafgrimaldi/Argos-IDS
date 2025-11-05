@@ -46,9 +46,16 @@ class ControllerAPI(app_manager.RyuApp):
             self.blocked_sources = {}  
             self.block_cooldown = 300 
             
-            self.last_processed_time = -1e18
-            self.start_time = self.last_processed_time
-            self.logger.info("IDS iniciado em timestamp: {}".format(self.start_time))
+            self.last_processed_time = 0.0
+            try:
+                if os.path.exists(self.filename):
+                    df = pd.read_csv(self.filename)
+                    col = 'timestamp' if 'timestamp' in df.columns else 'time'
+                    if col and not df.empty:
+                        self.last_processed_time = float(df[col].max())
+                        self.logger.info(f"Último timestamp processado: {self.last_processed_time}")
+            except Exception as e:
+                self.logger.warning(f"Não foi possível carregar last_processed_time: {e}")
             
             self.total_flows_processed = 0
             self.flow_last_seen = {}
@@ -148,7 +155,7 @@ class ControllerAPI(app_manager.RyuApp):
                 packet_count_per_second, packet_count_per_nsecond,
                 byte_count_per_second, byte_count_per_nsecond,
                 prediction_score, label, processed, flow_hash
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 self._safe_float(row.get("timestamp", time.time())),
                 self._safe_int(row.get("datapath_id")),
@@ -476,6 +483,9 @@ class ControllerAPI(app_manager.RyuApp):
 
             df_unprocessed = df[df[time_column] > float(self.last_processed_time)].copy()
             self.logger.info(f"[DEBUG] novos={len(df_unprocessed)}")
+            
+            cols_to_drop = ['flow_hash']
+            df_unprocessed.drop(columns=[c for c in cols_to_drop if c in df_unprocessed.columns], inplace=True)
 
             if df_unprocessed.empty:
                 self.logger.info("Nenhum tráfego novo para predição")
