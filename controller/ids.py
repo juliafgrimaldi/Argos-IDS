@@ -309,6 +309,21 @@ class ControllerAPI(app_manager.RyuApp):
         flow_string = f"{ip_src}-{ip_dst}-{tp_src}-{tp_dst}-{ip_proto}"
         return hashlib.sha256(flow_string.encode()).hexdigest()
 
+    def _is_block_active(self, dpid, ip_src, ip_dst):
+        try:
+            conn = sqlite3.connect("traffic.db")
+            cur = conn.cursor()
+            cur.execute("""SELECT 1 FROM blocked_flows
+                            WHERE dpid=? AND ip_src=? AND ip_dst=? AND active=1
+                            LIMIT 1""", (int(dpid), str(ip_src), str(ip_dst)))
+            ok = cur.fetchone() is not None
+            conn.close()
+            return ok
+        except Exception as e:
+            self.logger.warning(f"Falha ao checar block ativo no DB: {e}")
+            return False
+
+
     def is_flow_updated(self, flow_hash, packet_count, byte_count):
         if flow_hash not in self.flow_last_seen:
             return True
@@ -673,10 +688,12 @@ class ControllerAPI(app_manager.RyuApp):
             ON blocked_flows(dpid, ip_src, ip_dst, active)
             """)
 
-            cur.execute(
-                "INSERT INTO blocked_flows (dpid, ip_src, ip_dst, timestamp, reason, active) VALUES (?, ?, ?, ?, ?, 1) ON CONFLICT(dpid, ip_src, ip_dst, active) DO UPDATE SET timestamp=excluded.timestamp, reason=excluded.reason", 
-                (dpid, ip_src, ip_dst, time.time(), reason, 1)
-        )
+            cur.execute("""
+                INSERT INTO blocked_flows(dpid, ip_src, ip_dst, timestamp, reason, active)
+                VALUES (?, ?, ?, ?, ?, 1)
+                ON CONFLICT(dpid, ip_src, ip_dst, active)
+                DO UPDATE SET timestamp=excluded.timestamp, reason=excluded.reason
+            """, (int(dpid), str(ip_src), str(ip_dst), time.time(), reason))
             conn.commit()
             conn.close()
             self.logger.info(f" Bloqueio salvo no banco: {ip_src} -> {ip_dst}")
@@ -688,77 +705,66 @@ class ControllerAPI(app_manager.RyuApp):
         self.logger.info("="*60)
         self.logger.info("TENTATIVA DE BLOQUEIO")
         self.logger.info("="*60)
-        self.logger.info("dpid: {} (tipo: {})".format(dpid, type(dpid)))
-        self.logger.info("ip_src: {} (tipo: {})".format(ip_src, type(ip_src)))
-        self.logger.info("ip_dst: {} (tipo: {})".format(ip_dst, type(ip_dst)))
-        self.logger.info("block_url: {}".format(self.block_url))
-        key = (int(dpid), str(ip_src), str(ip_dst))
-        if key in self.blocked_sources:
-            last_block = self.blocked_sources[ip_src]
-            if time.time() - last_block < self.block_cooldown:
-                self.logger.debug("Origem {} já bloqueada recentemente".format(ip_src))
-                return 
+        self.logger.info(f"dpid: {dpid} (tipo: {type(dpid)})")
+        self.logger.info(f"ip_src: {ip_src} (tipo: {type(ip_src)})")
+        self.logger.info(f"ip_dst: {ip_dst} (tipo: {type(ip_dst)})")
+        self.logger.info(f"block_url: {self.block_url}")
 
         try:
             dpid = int(dpid)
-        except (ValueError, TypeError) as e:
-            self.logger.error("ERRO: dpid inválido: {} - {}".format(dpid, e))
-            return
-        
-        ip_invalid = (
-            not ip_src or ip_src == '0.0.0.0' or 
-            not ip_dst or ip_dst == '0.0.0.0'
-        )
-        
-        if ip_invalid:
-            self.logger.error(
-            f"ERRO: IPs e MACs inválidos — impossível bloquear: src={ip_src}, dst={ip_dst}"
-        )
+        except Exception as e:
+            self.logger.error(f"ERRO: dpid inválido: {dpid} - {e}")
             return
 
-        else:
-            flow_rule = {
-                "dpid": dpid,
-                "priority": 65535,
-                "match": {
-                    "eth_type": 2048,
-                    "ipv4_src": ip_src,
-                    "ipv4_dst": ip_dst
-            },
+        if not ip_src or ip_src == '0.0.0.0' or not ip_dst or ip_dst == '0.0.0.0':
+            self.logger.error(f"ERRO: IPs inválidos — impossível bloquear: src={ip_src}, dst={ip_dst}")
+            return
+
+        key = (dpid, str(ip_src), str(ip_dst))
+
+        last_block = self.blocked_sources.get(key)
+        if last_block and (time.time() - last_block) < self.block_cooldown:
+            self.logger.debug(f"Já bloqueado recentemente: {key}")
+            return
+
+        if self._is_block_active(dpid, ip_src, ip_dst):
+            self.logger.debug(f"Já existe bloqueio ativo no DB: {key}")
+            self.blocked_sources[key] = time.time()
+            return
+
+        delete_rule = {
+            "dpid": dpid,
+            "priority": 65535,
+            "match": {"eth_type": 2048, "ipv4_src": ip_src, "ipv4_dst": ip_dst}
+        }
+        try:
+            requests.post("http://127.0.0.1:8080/stats/flowentry/delete_strict",
+                        json=delete_rule, timeout=3)
+        except Exception as e:
+            self.logger.debug(f"delete_strict falhou (ok): {e}")
+
+        flow_rule = {
+            "dpid": dpid,
+            "cookie": 0xA11CE, "cookie_mask": 0xffffffffffffffff,
+            "priority": 65535,
+            "match": {"eth_type": 2048, "ipv4_src": ip_src, "ipv4_dst": ip_dst},
+            "idle_timeout": 300, "hard_timeout": 0,
             "actions": []
         }
 
-        self.logger.info("Regra a ser enviada:")
-        self.logger.info("  {}".format(flow_rule))
-
-
         try:
-            self.logger.info("Enviando POST para: {}".format(self.block_url))
-            response = requests.post(self.block_url, json=flow_rule, timeout=5)
-            
-            self.logger.info("Resposta HTTP: {}".format(response.status_code))
-            self.logger.info("Corpo da resposta: {}".format(response.text))
-            
-            if response.status_code == 200:
-                self.logger.warning("✅ BLOQUEIO INSTALADO COM SUCESSO!")
-                self.logger.warning("   {} -> {} no switch {} (priority=65535)".format(
-                    ip_src, ip_dst, dpid
-                ))
+            resp = requests.post(self.block_url, json=flow_rule, timeout=5)
+            self.logger.info(f"Resposta HTTP: {resp.status_code}")
+            self.logger.info(f"Corpo da resposta: {resp.text}")
+            if resp.status_code == 200:
+                self.logger.warning(f"✅ BLOQUEIO INSTALADO: {ip_src} -> {ip_dst} no switch {dpid}")
                 self.blocked_sources[key] = time.time()
                 self.save_block_in_db(dpid, ip_src, ip_dst, reason="IDS block")
             else:
-                self.logger.error("❌ FALHA HTTP {}: {}".format(
-                    response.status_code, response.text
-                ))
-                
+                self.logger.error(f"❌ FALHA HTTP {resp.status_code}: {resp.text}")
         except requests.exceptions.Timeout:
-            self.logger.error("❌ TIMEOUT ao conectar em {}".format(self.block_url))
+            self.logger.error(f"❌ TIMEOUT ao conectar em {self.block_url}")
         except requests.exceptions.ConnectionError as e:
-            self.logger.error("❌ ERRO DE CONEXÃO: {}".format(e))
-            self.logger.error("   Certifique-se que o Ryu REST está ativo")
+            self.logger.error(f"❌ ERRO DE CONEXÃO: {e} — verifique Ryu REST")
         except Exception as e:
-            self.logger.error("❌ ERRO INESPERADO: {}".format(e))
-            import traceback
-            self.logger.error(traceback.format_exc())
-        
-        self.logger.info("="*60)
+            self.logger.error(f"❌ ERRO INESPERADO: {e}")
