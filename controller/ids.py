@@ -45,6 +45,7 @@ class ControllerAPI(app_manager.RyuApp):
             ryu_instance = self
             self.blocked_sources = {}  
             self.block_cooldown = 300 
+            self.mitigation_mode = 'block'
             
             self.last_processed_time = 0.0
             try:
@@ -720,16 +721,24 @@ class ControllerAPI(app_manager.RyuApp):
             self.logger.error(f"ERRO: IPs inválidos — impossível bloquear: src={ip_src}, dst={ip_dst}")
             return
 
-        key = (dpid, str(ip_src), str(ip_dst))
-
-        last_block = self.blocked_sources.get(key)
-        if last_block and (time.time() - last_block) < self.block_cooldown:
-            self.logger.debug(f"Já bloqueado recentemente: {key}")
+        current_mode = getattr(self, 'mitigation_mode', 'block')
+        if current_mode == 'alert':
+            self.logger.warning("🔔 MODO ALERT ONLY - Bloqueio NÃO será aplicado")
+            self.logger.warning("   Ataque detectado: {} -> {} (DPID: {})".format(ip_src, ip_dst, dpid))
+            self.logger.warning("   Para bloquear, mude para modo BLOCK no painel")
             return
+
+        block_key = (dpid, str(ip_src), str(ip_dst))
+
+        if block_key in self.blocked_sources:
+            last_block = self.blocked_sources[block_key]
+            if (time.time() - last_block) < self.block_cooldown:
+                self.logger.debug(f"Já bloqueado recentemente: {block_key}")
+                return
 
         if self._is_block_active(dpid, ip_src, ip_dst):
             self.logger.debug(f"Já existe bloqueio ativo no DB: {key}")
-            self.blocked_sources[key] = time.time()
+            self.blocked_sources[block_key] = time.time()
             return
 
         delete_rule = {
@@ -758,7 +767,7 @@ class ControllerAPI(app_manager.RyuApp):
             self.logger.info(f"Corpo da resposta: {resp.text}")
             if resp.status_code == 200:
                 self.logger.warning(f"✅ BLOQUEIO INSTALADO: {ip_src} -> {ip_dst} no switch {dpid}")
-                self.blocked_sources[key] = time.time()
+                self.blocked_sources[block_key] = time.time()
                 self.save_block_in_db(dpid, ip_src, ip_dst, reason="IDS block")
             else:
                 self.logger.error(f"❌ FALHA HTTP {resp.status_code}: {resp.text}")
