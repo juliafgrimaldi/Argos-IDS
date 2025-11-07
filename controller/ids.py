@@ -80,6 +80,12 @@ class ControllerAPI(app_manager.RyuApp):
             self.logger.error("Erro no __init__: {}".format(e))
 
     def _initialize_db(self):
+        if os.path.exists("traffic.db"):
+            try:
+                os.remove("traffic.db")
+                self.logger.info("Banco de dados removido")
+            except Exception as e:
+                self.logger.warning("Erro ao remover db: {}".format(e))
         conn = sqlite3.connect("traffic.db")
         cursor = conn.cursor()
         cursor.execute("""
