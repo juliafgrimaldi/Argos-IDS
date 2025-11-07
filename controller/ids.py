@@ -743,7 +743,7 @@ class ControllerAPI(app_manager.RyuApp):
                 return
 
         if self._is_block_active(dpid, ip_src, ip_dst):
-            self.logger.debug(f"Já existe bloqueio ativo no DB: {key}")
+            self.logger.debug(f"Já existe bloqueio ativo no DB: {block_key}")
             self.blocked_sources[block_key] = time.time()
             return
 
