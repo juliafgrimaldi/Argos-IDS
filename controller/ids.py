@@ -118,6 +118,19 @@ class ControllerAPI(app_manager.RyuApp):
             flow_hash TEXT           
         )
         """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS blocked_flows (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            dpid INTEGER NOT NULL,
+            ip_src TEXT NOT NULL,
+            ip_dst TEXT NOT NULL,
+            timestamp REAL NOT NULL,
+            reason TEXT DEFAULT 'IDS block',
+            active BOOLEAN DEFAULT 1
+    )
+    """)
+    
         conn.commit()
         conn.close()
 
