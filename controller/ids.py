@@ -119,7 +119,7 @@ class ControllerAPI(app_manager.RyuApp):
         )
         """)
 
-        cursor.exec ute("""
+        cursor.execute("""
         CREATE TABLE IF NOT EXISTS blocked_flows (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             dpid INTEGER NOT NULL,
@@ -637,7 +637,7 @@ class ControllerAPI(app_manager.RyuApp):
                 subject = f"ALERTA: Tráfego malicioso detectado ({percentage_malicious:.1f}%)"
                 body = f"Foram detectados {num_malicious} fluxos maliciosos, totalizando {percentage_malicious:.1f}% do tráfego.\nAção recomendada: revisão do tráfego e bloqueio de fontes maliciosas."
                 self._notify_contacts(subject, body)
-                
+
             blocked_count = 0
             for i, pred in enumerate(final_predictions):
                 if i >= len(df_unprocessed):
