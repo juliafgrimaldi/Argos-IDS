@@ -5,6 +5,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
+from typing import List
 
 SCOPES = ['https://www.googleapis.com/auth/gmail.send']
 
@@ -36,7 +37,7 @@ def get_gmail_service():
     
     return build('gmail', 'v1', credentials=creds)
 
-def send_gmail(subject: str, body: str, to_list: list[str], sender_alias: str | None = None):
+def send_gmail(subject: str, body: str, to_list: List[str], sender_alias: str | None = None):
     if not to_list:
         raise ValueError("A lista de destinatários não pode estar vazia.")
     
