@@ -12,6 +12,7 @@ from ryu.base import app_manager
 from ryu.lib import hub
 from ryu.controller import event
 from sklearn import set_config
+from gmail_utils import send_gmail  
 from ML.predict_knn import predict_knn
 from ML.predict_svm import predict_svm
 from ML.predict_decision_tree import predict_decision_tree
@@ -164,7 +165,6 @@ class ControllerAPI(app_manager.RyuApp):
             return []
 
     def _notify_contacts(self, subject: str, body: str):
-        from controller.gmail_utils import send_gmail  # importa local p/ evitar deps circulares
         emails = self._get_enabled_contacts()
         if emails:
             try:
