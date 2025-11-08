@@ -296,6 +296,7 @@
       <li onclick="showSection('dashboard')">📊 Dashboard</li>
       <li onclick="showSection('block')">🚫 Bloquear Tráfego</li>
       <li onclick="showSection('blocked')">📋 Bloqueios Ativos</li>
+      <li onclick="showSection('contacts')">📧 Configurar Contatos</li>
     </ul>
   </aside>
 
@@ -352,6 +353,31 @@
       </div>
       <button onclick="blockTraffic()">🔒 Bloquear</button>
     </div>
+
+    <div id="contacts-section" class="hidden">
+      <h2>📧 Configuração de Contatos</h2>
+      
+      <div class="form-group">
+        <label for="nameInput">Nome</label>
+        <input type="text" id="nameInput" placeholder="Nome do Contato">
+      </div>
+      
+      <div class="form-group">
+        <label for="emailInput">E-mail</label>
+        <input type="email" id="emailInput" placeholder="email@example.com">
+      </div>
+      
+      <div class="form-group">
+        <label for="enabledCheckbox">Ativar envio de alertas</label>
+        <input type="checkbox" id="enabledCheckbox" checked>
+      </div>
+      
+      <button onclick="saveContact()"> Salvar Contato</button>
+      
+      <h3>Contatos Cadastrados:</h3>
+      <ul id="contacts-list"></ul>
+    </div>
+    
 
     <!-- BLOQUEIOS ATIVOS -->
     <div id="blocked-section" class="hidden">
@@ -514,7 +540,6 @@
         const topo = await topoResp.json();
         const alerts = await alertsResp.json();
 
-        // Atualizar cards
         document.getElementById('switches').textContent = topo.switches;
         document.getElementById('hosts').textContent = topo.hosts;
         document.getElementById('suspiciousTraffic').textContent = stats.suspicious_traffic;
@@ -596,7 +621,110 @@
       setInterval(updateDashboard, 10000);
     }
 
+    async function showSection(section) {
+    document.getElementById('dashboard-section').classList.add('hidden');
+    document.getElementById('block-section').classList.add('hidden');
+    document.getElementById('blocked-section').classList.add('hidden');
+    document.getElementById('contacts-section').classList.add('hidden');
+    document.getElementById(section + '-section').classList.remove('hidden');
+  }
+
+  async function saveContact() {
+    const name = document.getElementById('nameInput').value;
+    const email = document.getElementById('emailInput').value;
+    const enabled = document.getElementById('enabledCheckbox').checked;
+
+    if (!name || !email) {
+      alert('❌ Nome e E-mail são obrigatórios');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, enabled })
+      });
+      const result = await res.json();
+
+      if (result.status === 'success') {
+        alert('✅ Contato salvo com sucesso!');
+        document.getElementById('nameInput').value = '';
+        document.getElementById('emailInput').value = '';
+        document.getElementById('enabledCheckbox').checked = true;
+        fetchContacts();  
+      } else {
+        alert('❌ Erro: ' + result.message);
+      }
+    } catch (e) {
+      alert('❌ Erro: ' + e);
+    }
+  }
+
+  async function fetchContacts() {
+    try {
+      const res = await fetch('/api/contacts');
+      const data = await res.json();
+
+      const list = document.getElementById('contacts-list');
+      list.innerHTML = '';
+      
+      data.contacts.forEach(contact => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <strong>${contact.name}</strong> (${contact.email}) 
+          ${contact.enabled ? '[Ativo]' : '[Desativado]'}
+          <button onclick="deleteContact(${contact.id})">🗑️ Remover</button>
+        `;
+        list.appendChild(li);
+      });
+    } catch (e) {
+      console.error('Erro ao carregar contatos:', e);
+    }
+  }
+
+  async function deleteContact(contactId) {
+    if (!confirm('Deseja realmente excluir este contato?')) return;
+
+    try {
+      const res = await fetch(`/api/contacts/${contactId}`, { method: 'DELETE' });
+      const result = await res.json();
+
+      if (result.status === 'success') {
+        alert('✅ Contato removido com sucesso!');
+        fetchContacts();  
+      } else {
+        alert('❌ Erro: ' + result.message);
+      }
+    } catch (e) {
+      alert('❌ Erro: ' + e);
+    }
+  }
+
+  async function fetchContacts() {
+    try {
+      const res = await fetch('/api/contacts');
+      const data = await res.json();
+      
+      const list = document.getElementById('contacts-list');
+      list.innerHTML = '';
+      
+      data.contacts.forEach(contact => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <strong>${contact.name}</strong> (${contact.email}) - 
+          ${contact.enabled ? 'Ativo' : 'Desativado'}
+          <button onclick="deleteContact(${contact.id})">Remover</button>
+        `;
+        list.appendChild(li);
+      });
+    } catch (e) {
+      console.error('Erro ao carregar contatos:', e);
+    }
+  }  
+
     init();
+    fetchContacts();
   </script>
 </body>
 </html>
