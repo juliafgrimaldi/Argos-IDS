@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import math
 import sqlite3
+from typing import List
 from ryu.base import app_manager
 from ryu.lib import hub
 from ryu.controller import event
@@ -153,7 +154,7 @@ class ControllerAPI(app_manager.RyuApp):
         except Exception as e:
             self.logger.warning(f"Não foi possivel inicializar last_processed_time: {e}")
 
-    def _get_enabled_contacts(self) -> list[str]:
+    def _get_enabled_contacts(self) -> List[str]:
         try:
             conn = sqlite3.connect("traffic.db")
             rows = conn.execute("SELECT email FROM alert_contacts WHERE enabled = 1").fetchall()
