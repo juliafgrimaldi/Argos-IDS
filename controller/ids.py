@@ -119,7 +119,7 @@ class ControllerAPI(app_manager.RyuApp):
         )
         """)
 
-        cursor.execute("""
+        cursor.exec ute("""
         CREATE TABLE IF NOT EXISTS blocked_flows (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             dpid INTEGER NOT NULL,
@@ -129,6 +129,14 @@ class ControllerAPI(app_manager.RyuApp):
             reason TEXT DEFAULT 'IDS block',
             active BOOLEAN DEFAULT 1
     )
+    """)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS alert_contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            email TEXT UNIQUE,
+            enabled BOOLEAN DEFAULT 1
+        )
     """)
     
         conn.commit()
@@ -145,6 +153,24 @@ class ControllerAPI(app_manager.RyuApp):
         except Exception as e:
             self.logger.warning(f"Não foi possivel inicializar last_processed_time: {e}")
 
+    def _get_enabled_contacts(self) -> list[str]:
+        try:
+            conn = sqlite3.connect("traffic.db")
+            rows = conn.execute("SELECT email FROM alert_contacts WHERE enabled = 1").fetchall()
+            conn.close()
+            return [r[0] for r in rows]
+        except Exception:
+            return []
+
+    def _notify_contacts(self, subject: str, body: str):
+        from controller.gmail_utils import send_gmail  # importa local p/ evitar deps circulares
+        emails = self._get_enabled_contacts()
+        if emails:
+            try:
+                send_gmail(subject, body, emails)
+                self.logger.info(f"E-mail de alerta enviado para: {emails}")
+            except Exception as e:
+                self.logger.error(f"Falha ao enviar e-mail: {e}")
 
     def _safe_int(self, val, default=0):
         try:
@@ -587,6 +613,8 @@ class ControllerAPI(app_manager.RyuApp):
             if not predictions:
                 self.logger.error("Nenhuma predição válida foi obtida!")
                 return
+            
+            final_predictions = self.weighted_vote(predictions)
 
             if len(predictions) > 1:
                 self.logger.info("Usando votação ponderada com {} modelos".format(len(predictions)))
@@ -597,15 +625,19 @@ class ControllerAPI(app_manager.RyuApp):
                 self.logger.info("Usando apenas modelo: {}".format(model_name))
 
             arr = np.array(final_predictions)
-            num_malicious = np.count_nonzero(arr == 0)
-            total_flows = len(arr)
+            num_malicious = np.count_nonzero(final_predictions == 0)
+            total_flows = len(final_predictions)
             percentage_malicious = (num_malicious/total_flows)*100 if total_flows > 0 else 0
             self.logger.info(f"RESULTADO FINAL: {num_malicious} fluxos maliciosos de {total_flows} total ({100*num_malicious/total_flows:.1f}%)")
         
+            malicious_traffic_threshold = 10
 
-            if percentage_malicious > 80 and total_flows > 10:
+            if percentage_malicious > malicious_traffic_threshold:
                 self.logger.error("ALERTA: Taxa de detecção suspeita ({:.1f}%)!".format(percentage_malicious))
-
+                subject = f"ALERTA: Tráfego malicioso detectado ({percentage_malicious:.1f}%)"
+                body = f"Foram detectados {num_malicious} fluxos maliciosos, totalizando {percentage_malicious:.1f}% do tráfego.\nAção recomendada: revisão do tráfego e bloqueio de fontes maliciosas."
+                self._notify_contacts(subject, body)
+                
             blocked_count = 0
             for i, pred in enumerate(final_predictions):
                 if i >= len(df_unprocessed):
@@ -788,6 +820,17 @@ class ControllerAPI(app_manager.RyuApp):
                 self.logger.warning(f"✅ BLOQUEIO INSTALADO: {ip_src} -> {ip_dst} no switch {dpid}")
                 self.blocked_sources[block_key] = time.time()
                 self.save_block_in_db(dpid, ip_src, ip_dst, reason="IDS block")
+                try:
+                    subject = f"[IDS] Regra BLOQUEADA: {ip_src} → {ip_dst} (dpid {dpid})"
+                    body = (
+                        "Uma regra de bloqueio foi instalada via IDS.\n\n"
+                        f"dpid: {dpid}\n"
+                        f"src:  {ip_src}\n"
+                        f"dst:  {ip_dst}\n"
+                        )
+                    self._notify_contacts(subject, body)
+                except Exception as e:
+                    self.logger.error(f"Falha ao notificar bloqueio: {e}")
             else:
                 self.logger.error(f"❌ FALHA HTTP {resp.status_code}: {resp.text}")
         except requests.exceptions.Timeout:

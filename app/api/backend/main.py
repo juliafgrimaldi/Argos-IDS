@@ -18,6 +18,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "../../../controller/traffic.db")
 CONFIG_FILE = os.path.join(BASE_DIR, "mitigation_mode.json")
 
+class ContactRequest(BaseModel):
+    name: str
+    email: str
+    enabled: bool
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 if not os.path.exists(CONFIG_FILE):
@@ -72,6 +77,21 @@ def init_blocked_table():
     conn.close()
 
 init_blocked_table()
+
+def init_contacts_table():
+    conn = get_db_connection()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS alert_contacts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            email TEXT UNIQUE,
+            enabled BOOLEAN DEFAULT 1
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_contacts_table()
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
@@ -316,3 +336,51 @@ def get_recent_alerts(limit: int = 5):
 
     alerts = [{"source": r["ip_src"], "destination": r["ip_dst"], "time": r["timestamp"]} for r in rows]
     return {"alerts": alerts}
+
+
+@app.get("/api/contacts")
+def list_contacts():
+    conn = get_db_connection()
+    rows = conn.execute("SELECT id, name, email, enabled FROM alert_contacts ORDER BY id DESC").fetchall()
+    conn.close()
+    return {"contacts": [{"id": r["id"], "name": r["name"], "email": r["email"], "enabled": bool(r["enabled"])} for r in rows]}
+
+@app.post("/api/contacts")
+def create_contact(contact: ContactRequest):
+    conn = get_db_connection()
+    try:
+        conn.execute("INSERT INTO alert_contacts(name, email, enabled) VALUES (?, ?, ?)", (contact.name, contact.email, int(contact.enabled)))
+        conn.commit()
+        return {"status": "success"}
+    except sqlite3.IntegrityError:
+        return {"status": "error", "message": "E-mail já cadastrado"}
+    finally:
+        conn.close()
+
+@app.put("/api/contacts/{contact_id}")
+def update_contact(contact_id: int, contact: ContactRequest):
+    fields, vals = [], []
+    if contact.name is not None:
+        fields.append("name = ?");   vals.append(contact.name)
+    if contact.email is not None:
+        fields.append("email = ?");  vals.append(contact.email)
+    if contact.enabled is not None:
+        fields.append("enabled = ?"); vals.append(int(contact.enabled))
+
+    if not fields:
+        return {"status": "error", "message": "Nada para atualizar"}
+
+    vals.append(contact_id)
+    conn = get_db_connection()
+    conn.execute(f"UPDATE alert_contacts SET {', '.join(fields)} WHERE id = ?", vals)
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
+@app.delete("/api/contacts/{contact_id}")
+def delete_contact(contact_id: int):
+    conn = get_db_connection()
+    conn.execute("DELETE FROM alert_contacts WHERE id = ?", (contact_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
