@@ -383,6 +383,7 @@
       <li onclick="showSection('block')">🚫 Bloquear Tráfego</li>
       <li onclick="showSection('blocked')">📋 Bloqueios Ativos</li>
       <li onclick="showSection('contacts')">📧 Configurar Contatos</li>
+      <li onclick="showSection('rules')">🧩 Regras (Pré-filtro)</li>
     </ul>
   </aside>
 
@@ -495,6 +496,56 @@
       </div>
     </div>
   </div>
+
+  <div id="rules-section" class="hidden">
+    <h2>🧩 Regras (Pré-filtro)</h2>
+  
+    <div class="alerts">
+      <h3>Criar regra rápida</h3>
+      <div class="form-group">
+        <label>Nome</label>
+        <input id="ruleName" placeholder="Ex.: Bloquear >100 KB">
+      </div>
+  
+      <div class="form-group">
+        <label>Ação</label>
+        <select id="ruleAction">
+          <option value="block">Bloquear</option>
+          <option value="alert">Apenas alertar</option>
+        </select>
+      </div>
+  
+      <details style="margin-bottom:10px;">
+        <summary><strong>Filtros por campos (fáceis)</strong></summary>
+        <div class="form-group"><label>IP origem (regex opcional)</label><input id="ruleIpSrc" placeholder="ex.: ^10\.0\.\d+\.\d+$"></div>
+        <div class="form-group"><label>IP destino (regex opcional)</label><input id="ruleIpDst" placeholder="ex.: ^192\.168\..*"></div>
+        <div class="form-group"><label>Protocolo (TCP/UDP/ICMP ou regex)</label><input id="ruleProto" placeholder="ex.: tcp"></div>
+        <div class="form-group"><label>Porta origem (exata)</label><input id="rulePortSrc" type="number" min="0" max="65535" placeholder="ex.: 12345"></div>
+        <div class="form-group"><label>Porta destino (exata)</label><input id="rulePortDst" type="number" min="0" max="65535" placeholder="ex.: 22"></div>
+      </details>
+  
+      <details>
+        <summary><strong>Limites (acionam a regra quando excedidos)</strong></summary>
+        <div class="form-group"><label>Bytes > </label><input id="ruleMaxBytes" type="number" placeholder="ex.: 100000"></div>
+        <div class="form-group"><label>Pacotes > </label><input id="ruleMaxPkts" type="number" placeholder="ex.: 1000"></div>
+        <div class="form-group"><label>PPS > </label><input id="ruleMaxPps" type="number" placeholder="ex.: 500"></div>
+        <div class="form-group"><label>BPS > </label><input id="ruleMaxBps" type="number" placeholder="ex.: 1000000"></div>
+      </details>
+  
+      <button onclick="createRule()">➕ Criar regra</button>
+    </div>
+  
+    <div class="alerts">
+      <h3>Presets (clique para carregar)</h3>
+      <ul id="presetList"></ul>
+    </div>
+  
+    <div class="blocks-list">
+      <h3>Regras ativas</h3>
+      <ul id="ruleList"></ul>
+    </div>
+  </div>
+  
 
   <script>
     const sidebar = document.getElementById('sidebar');
@@ -888,11 +939,124 @@
       }
     }
 
+    async function fetchRulePresets() {
+      try {
+        const res = await fetch('/api/rules/presets');
+        const data = await res.json();
+        const ul = document.getElementById('presetList');
+        ul.innerHTML = '';
+        data.presets.forEach(p => {
+          const li = document.createElement('li');
+          li.style.cursor = 'pointer';
+          li.className = 'alert';
+          li.innerHTML = `<strong>${p.name}</strong><br><small>${p.description||''}</small>`;
+          li.onclick = () => {
+            document.getElementById('ruleName').value = p.name || '';
+            document.getElementById('ruleAction').value = p.action || 'block';
+            document.getElementById('ruleIpSrc').value = p.ip_src || '';
+            document.getElementById('ruleIpDst').value = p.ip_dst || '';
+            document.getElementById('ruleProto').value = p.protocol || '';
+            document.getElementById('rulePortSrc').value = p.port_src ?? '';
+            document.getElementById('rulePortDst').value = p.port_dst ?? '';
+            document.getElementById('ruleMaxBytes').value = p.max_bytes ?? '';
+            document.getElementById('ruleMaxPkts').value = p.max_packets ?? '';
+            document.getElementById('ruleMaxPps').value = p.max_pps ?? '';
+            document.getElementById('ruleMaxBps').value = p.max_bps ?? '';
+            alert('Preset carregado. Ajuste se quiser e clique em "Criar regra".');
+          };
+          ul.appendChild(li);
+        });
+      } catch (e) { console.error(e); }
+    }
+
+    async function createRule() {
+      const body = {
+        name: document.getElementById('ruleName').value.trim(),
+        description: '',
+        ip_src: document.getElementById('ruleIpSrc').value.trim() || null,
+        ip_dst: document.getElementById('ruleIpDst').value.trim() || null,
+        port_src: document.getElementById('rulePortSrc').value ? parseInt(document.getElementById('rulePortSrc').value) : null,
+        port_dst: document.getElementById('rulePortDst').value ? parseInt(document.getElementById('rulePortDst').value) : null,
+        protocol: document.getElementById('ruleProto').value.trim() || null,
+        max_bytes: document.getElementById('ruleMaxBytes').value ? parseInt(document.getElementById('ruleMaxBytes').value) : null,
+        max_packets: document.getElementById('ruleMaxPkts').value ? parseInt(document.getElementById('ruleMaxPkts').value) : null,
+        max_pps: document.getElementById('ruleMaxPps').value ? parseInt(document.getElementById('ruleMaxPps').value) : null,
+        max_bps: document.getElementById('ruleMaxBps').value ? parseInt(document.getElementById('ruleMaxBps').value) : null,
+        action: document.getElementById('ruleAction').value,
+        enabled: true
+      };
+
+      if (!body.name) { alert('Dê um nome à regra.'); return; }
+
+      try {
+        const res = await fetch('/api/rules', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const data = await res.json();
+        if (data.status === 'success') {
+          alert('✅ Regra criada');
+          listRules();
+        } else {
+          alert('❌ ' + (data.message || 'Erro ao criar regra'));
+        }
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    async function listRules() {
+      try {
+        const res = await fetch('/api/rules');
+        const data = await res.json();
+        const ul = document.getElementById('ruleList');
+        ul.innerHTML = '';
+        if (!data.rules.length) {
+          ul.innerHTML = '<li style="text-align:center;color:#888;">Nenhuma regra</li>';
+          return;
+        }
+        data.rules.forEach(r => {
+          const li = document.createElement('li');
+          li.className = 'block-item';
+          li.innerHTML = `
+            <div class="info">
+              <strong>${r.name}</strong> — ${r.action.toUpperCase()} ${r.enabled ? '' : '(desativada)'}<br>
+              <small>${r.description || ''}</small><br>
+              <small>Filtros: 
+                ${r.ip_src || ''} ${r.ip_dst || ''} ${r.protocol || ''} 
+                ${r.port_src ? 'sport='+r.port_src : ''} ${r.port_dst ? 'dport='+r.port_dst : ''}
+                ${r.max_bytes ? 'bytes>'+r.max_bytes : ''} ${r.max_packets ? 'pkts>'+r.max_packets : ''} 
+                ${r.max_pps ? 'pps>'+r.max_pps : ''} ${r.max_bps ? 'bps>'+r.max_bps : ''}
+              </small>
+            </div>
+            <div class="actions">
+              <button onclick="toggleRule(${r.id}, ${r.enabled ? 'false':'true'})">${r.enabled ? 'Desativar' : 'Ativar'}</button>
+              <button onclick="deleteRule(${r.id})">🗑️</button>
+            </div>`;
+          ul.appendChild(li);
+        });
+      } catch (e) { console.error(e); }
+    }
+
+    async function toggleRule(id, enabled) {
+      try {
+        const res = await fetch(`/api/rules/${id}/toggle`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({enabled}) });
+        await res.json();
+        listRules();
+      } catch (e) { alert('❌ ' + e); }
+    }
+
+    async function deleteRule(id) {
+      if (!confirm('Remover regra?')) return;
+      try {
+        const res = await fetch(`/api/rules/${id}`, { method:'DELETE' });
+        await res.json();
+        listRules();
+      } catch (e) { alert('❌ ' + e); }
+    }
+
     async function init() {
       await fetchSwitches();
       await fetchMode();
       await updateDashboard();
       await fetchContacts();
+      await fetchRulePresets();
+      await listRules();
       setInterval(updateDashboard, 10000);
     }
 

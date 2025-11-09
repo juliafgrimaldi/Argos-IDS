@@ -6,6 +6,7 @@ import requests
 import pandas as pd
 import numpy as np
 import math
+import re
 import sqlite3
 from typing import List
 from ryu.base import app_manager
@@ -48,6 +49,9 @@ class ControllerAPI(app_manager.RyuApp):
             self.blocked_sources = {}  
             self.block_cooldown = 300 
             self.mitigation_mode = 'block'
+            self.rules_cache = []
+            self.rules_loaded_at = 0
+            self.rules_ttl = 30
             
             self.last_processed_time = 0.0
             try:
@@ -80,6 +84,7 @@ class ControllerAPI(app_manager.RyuApp):
             self.logger.info("ControllerAPI inicializou com sucesso")
         except Exception as e:
             self.logger.error("Erro no __init__: {}".format(e))
+            
 
     def _initialize_db(self):
         if os.path.exists("traffic.db"):
@@ -138,6 +143,26 @@ class ControllerAPI(app_manager.RyuApp):
             name TEXT,
             email TEXT UNIQUE,
             enabled BOOLEAN DEFAULT 1
+        )
+    """)
+        
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS filter_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT,
+            ip_src TEXT,
+            ip_dst TEXT,
+            port_src INTEGER,
+            port_dst INTEGER,
+            protocol TEXT,
+            max_bytes INTEGER,
+            max_packets INTEGER,
+            max_pps INTEGER,
+            max_bps INTEGER,
+            action TEXT DEFAULT 'block',
+            enabled BOOLEAN DEFAULT 1,
+            created_at REAL DEFAULT (strftime('%s', 'now'))
         )
     """)
     
@@ -404,7 +429,7 @@ class ControllerAPI(app_manager.RyuApp):
             flows_with_ip = 0
             flows_filtered_empty = 0
             flows_filtered_volumetric = 0
-            flows_skipped_no_update = 0
+            rules = self._load_filter_rules()
 
             for stat in flow_stats:
                 match = stat.get('match', {})
@@ -451,6 +476,32 @@ class ControllerAPI(app_manager.RyuApp):
                     
                 packet_count_per_nsecond = packet_count / total_duration_nsec
                 byte_count_per_nsecond = byte_count / total_duration_nsec
+
+                for rule in rules:
+                    try:
+                        if self._flow_matches_rule(
+                            rule,
+                            ip_src=ip_src, ip_dst=ip_dst,
+                            tp_src=tp_src, tp_dst=tp_dst, ip_proto=ip_proto,
+                            packet_count=packet_count, byte_count=byte_count,
+                            pps=packet_count_per_second, bps=byte_count_per_second
+                        ):
+                            self.logger.warning(f"[RULE:{rule['id']}] '{rule['name']}' acionada para {ip_src} → {ip_dst}")
+
+                            if rule["action"] == "block" and self.mitigation_mode == "block":
+                                self.block_traffic(dpid, ip_src, ip_dst, in_port)
+                                self.logger.info(f"✅ Bloqueio automático via regra '{rule['name']}'")
+                            else:
+                                self._notify_contacts(
+                                    subject=f"[IDS][RULE] {rule['name']} acionada",
+                                    body=(
+                                        f"Regra '{rule['name']}' acionada para {ip_src} → {ip_dst}\n"
+                                        f"dpid={dpid} | PPS={packet_count_per_second:.2f} | BPS={byte_count_per_second:.2f}"
+                                    )
+                                )
+                            break
+                    except Exception as e:
+                        self.logger.error(f"Erro ao avaliar regra '{rule.get('name')}': {e}")
 
                 if packet_count_per_second > 10000:
                     self.logger.warning("Bloqueio heurístico - ATAQUE VOLUMÉTRICO DETECTADO: {} pps".format(packet_count_per_second))
@@ -840,3 +891,76 @@ class ControllerAPI(app_manager.RyuApp):
             self.logger.error(f"❌ ERRO DE CONEXÃO: {e} — verifique Ryu REST")
         except Exception as e:
             self.logger.error(f"❌ ERRO INESPERADO: {e}")
+
+
+    def _load_filter_rules(self):
+        try:
+            now = time.time()
+            if (now - self.rules_loaded_at) < self.rules_ttl and self.rules_cache:
+                return self.rules_cache
+
+            conn = sqlite3.connect("traffic.db")
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("""
+                SELECT id, name, description, ip_src, ip_dst, port_src, port_dst,
+                    protocol, max_bytes, max_packets, max_pps, max_bps,
+                    action, enabled
+                FROM filter_rules
+                WHERE enabled = 1
+            """).fetchall()
+            conn.close()
+
+            compiled = []
+            for r in rows:
+                ip_src_re = re.compile(r["ip_src"]) if r["ip_src"] else None
+                ip_dst_re = re.compile(r["ip_dst"]) if r["ip_dst"] else None
+                proto_re  = re.compile(r["protocol"], re.IGNORECASE) if r["protocol"] else None
+                compiled.append({
+                    "id": r["id"],
+                    "name": r["name"],
+                    "action": (r["action"] or "block").lower(),
+                    "ip_src_re": ip_src_re,
+                    "ip_dst_re": ip_dst_re,
+                    "proto_re": proto_re,
+                    "port_src": r["port_src"],
+                    "port_dst": r["port_dst"],
+                    "max_bytes": r["max_bytes"],
+                    "max_packets": r["max_packets"],
+                    "max_pps": r["max_pps"],
+                    "max_bps": r["max_bps"],
+                })
+            self.rules_cache = compiled
+            self.rules_loaded_at = now
+            return compiled
+        except Exception as e:
+            self.logger.warning(f"Falha ao carregar regras: {e}")
+            return []
+
+    def _flow_matches_rule(self, rule, *, ip_src, ip_dst, tp_src, tp_dst, ip_proto,
+                       packet_count, byte_count, pps, bps):
+        if rule["ip_src_re"] and not rule["ip_src_re"].search(str(ip_src)):
+            return False
+        if rule["ip_dst_re"] and not rule["ip_dst_re"].search(str(ip_dst)):
+            return False
+        if rule["proto_re"]:
+            proto_name = {6:"TCP", 17:"UDP", 1:"ICMP"}.get(int(ip_proto), str(ip_proto))
+            if not rule["proto_re"].search(proto_name):
+                return False
+        if rule["port_src"] is not None and int(rule["port_src"]) != int(tp_src or 0):
+            return False
+        if rule["port_dst"] is not None and int(rule["port_dst"]) != int(tp_dst or 0):
+            return False
+        if rule["max_bytes"]   is not None and byte_count   is not None and int(byte_count)   > int(rule["max_bytes"]):
+            return True
+        if rule["max_packets"] is not None and packet_count is not None and int(packet_count) > int(rule["max_packets"]):
+            return True
+        if rule["max_pps"]     is not None and pps is not None and float(pps) > float(rule["max_pps"]):
+            return True
+        if rule["max_bps"]     is not None and bps is not None and float(bps) > float(rule["max_bps"]):
+            return True
+
+        if (rule["ip_src_re"] or rule["ip_dst_re"] or rule["proto_re"]
+            or rule["port_src"] is not None or rule["port_dst"] is not None):
+            return True
+
+        return False

@@ -8,6 +8,7 @@ import datetime
 import sqlite3
 import requests
 import json
+import re
 from pydantic import BaseModel
 from typing import Optional
 
@@ -28,6 +29,21 @@ class ContactRequest(BaseModel):
     name: str
     email: str
     enabled: bool
+
+class RuleRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    ip_src: Optional[str] = None
+    ip_dst: Optional[str] = None
+    port_src: Optional[int] = None
+    port_dst: Optional[int] = None
+    protocol: Optional[str] = None
+    max_bytes: Optional[int] = None
+    max_packets: Optional[int] = None
+    max_pps: Optional[int] = None
+    max_bps: Optional[int] = None
+    action: str = "block"
+    enabled: bool = True
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -402,3 +418,132 @@ def delete_contact(contact_id: int):
     conn.commit()
     conn.close()
     return {"status": "success"}
+
+@app.get("/api/rules/presets")
+def rule_presets():
+    return {
+        "presets": [
+            {
+                "name": "Bloquear tráfego > 100.000 bytes",
+                "description": "Bloqueia qualquer fluxo que ultrapassar 100 KB transferidos",
+                "action": "block",
+                "max_bytes": 100000
+            },
+            {
+                "name": "Alertar PPS > 500",
+                "description": "Apenas alerta quando pacotes/segundo excede 500",
+                "action": "alert",
+                "max_pps": 500
+            },
+            {
+                "name": "Bloquear ICMP (ping)",
+                "description": "Bloqueia fluxos ICMP",
+                "action": "block",
+                "protocol": "icmp"
+            },
+            {
+                "name": "Bloquear TCP para porta 22",
+                "description": "Bloqueia SSH (porta destino 22)",
+                "action": "block",
+                "protocol": "tcp",
+                "port_dst": 22
+            },
+            {
+                "name": "Bloquear origem 10.0.*.*",
+                "description": "Regex na origem (rede 10.0.x.x)",
+                "action": "block",
+                "ip_src": r"^10\.0\.\d+\.\d+$"
+            }
+        ]
+    }
+
+
+@app.get("/api/rules")
+def list_rules():
+    conn = get_db_connection()
+    rows = conn.execute("""
+        SELECT * FROM filter_rules ORDER BY id DESC
+    """).fetchall()
+    conn.close()
+    
+    rules = []
+    for row in rows:
+        rules.append({
+            "id": row["id"],
+            "name": row["name"],
+            "description": row["description"],
+            "ip_src": row["ip_src"],
+            "ip_dst": row["ip_dst"],
+            "port_src": row["port_src"],
+            "port_dst": row["port_dst"],
+            "protocol": row["protocol"],
+            "max_bytes": row["max_bytes"],
+            "max_packets": row["max_packets"],
+            "max_pps": row["max_pps"],
+            "max_bps": row["max_bps"],
+            "action": row["action"],
+            "enabled": bool(row["enabled"]),
+            "created_at": row["created_at"]
+        })
+    
+    return {"rules": rules}
+
+@app.post("/api/rules")
+def create_rule(rule: RuleRequest):
+    conn = get_db_connection()
+    
+    try:
+        cursor = conn.execute("""
+            INSERT INTO filter_rules (
+                name, description, ip_src, ip_dst, port_src, port_dst,
+                protocol, max_bytes, max_packets, max_pps, max_bps,
+                action, enabled
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            rule.name,
+            rule.description,
+            rule.ip_src,
+            rule.ip_dst,
+            rule.port_src,
+            rule.port_dst,
+            rule.protocol,
+            rule.max_bytes,
+            rule.max_packets,
+            rule.max_pps,
+            rule.max_bps,
+            rule.action,
+            int(rule.enabled)
+        ))
+        
+        conn.commit()
+        rule_id = cursor.lastrowid
+        conn.close()
+        
+        return {"status": "success", "message": "Regra criada", "id": rule_id}
+    except Exception as e:
+        conn.close()
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/rules/{rule_id}/toggle")
+async def toggle_rule(rule_id: int, request: Request):
+    data = await request.json()
+    enabled = data.get('enabled', True)
+    
+    conn = get_db_connection()
+    conn.execute(
+        "UPDATE filter_rules SET enabled = ? WHERE id = ?",
+        (int(enabled), rule_id)
+    )
+    conn.commit()
+    conn.close()
+    
+    return {"status": "success"}
+
+@app.delete("/api/rules/{rule_id}")
+def delete_rule(rule_id: int):
+    conn = get_db_connection()
+    conn.execute("DELETE FROM filter_rules WHERE id = ?", (rule_id,))
+    conn.commit()
+    conn.close()
+    
+    return {"status": "success", "message": "Regra removida"}
