@@ -9,6 +9,7 @@ import sqlite3
 import requests
 import json
 from pydantic import BaseModel
+from typing import Optional
 
 app = FastAPI()
 
@@ -17,6 +18,11 @@ CSV_FILE = 'traffic_predict.csv'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  
 DB_PATH = os.path.join(BASE_DIR, "../../../controller/traffic.db")
 CONFIG_FILE = os.path.join(BASE_DIR, "mitigation_mode.json")
+
+class ContactUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    enabled: Optional[bool] = None
 
 class ContactRequest(BaseModel):
     name: str
@@ -358,24 +364,36 @@ def create_contact(contact: ContactRequest):
         conn.close()
 
 @app.put("/api/contacts/{contact_id}")
-def update_contact(contact_id: int, contact: ContactRequest):
-    fields, vals = [], []
-    if contact.name is not None:
-        fields.append("name = ?");   vals.append(contact.name)
-    if contact.email is not None:
-        fields.append("email = ?");  vals.append(contact.email)
-    if contact.enabled is not None:
-        fields.append("enabled = ?"); vals.append(int(contact.enabled))
-
-    if not fields:
-        return {"status": "error", "message": "Nada para atualizar"}
-
-    vals.append(contact_id)
+def update_contact(contact_id: int, contact: ContactUpdateRequest):
     conn = get_db_connection()
-    conn.execute(f"UPDATE alert_contacts SET {', '.join(fields)} WHERE id = ?", vals)
-    conn.commit()
-    conn.close()
-    return {"status": "success"}
+    
+    current = conn.execute(
+        "SELECT name, email, enabled FROM alert_contacts WHERE id = ?", 
+        (contact_id,)
+    ).fetchone()
+    
+    if not current:
+        conn.close()
+        return {"status": "error", "message": "Contato não encontrado"}
+    
+    name = contact.name if contact.name is not None else current["name"]
+    email = contact.email if contact.email is not None else current["email"]
+    enabled = contact.enabled if contact.enabled is not None else bool(current["enabled"])
+    
+    try:
+        conn.execute(
+            "UPDATE alert_contacts SET name = ?, email = ?, enabled = ? WHERE id = ?",
+            (name, email, int(enabled), contact_id)
+        )
+        conn.commit()
+        conn.close()
+        return {"status": "success", "message": "Contato atualizado"}
+    except sqlite3.IntegrityError:
+        conn.close()
+        return {"status": "error", "message": "E-mail já cadastrado"}
+    except Exception as e:
+        conn.close()
+        return {"status": "error", "message": str(e)}
 
 @app.delete("/api/contacts/{contact_id}")
 def delete_contact(contact_id: int):

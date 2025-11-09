@@ -135,12 +135,6 @@
     .overview .card .red { color: #e53935; }
     .overview .card .orange { color: #ff9800; }
 
-    .status {
-      font-size: 12px;
-      display: block;
-      margin-top: 5px;
-    }
-
     .alerts, .blocks-list {
       background: #1e1e1e;
       padding: 15px;
@@ -177,9 +171,7 @@
       border-left: 4px solid #ff9800;
     }
 
-    .block-item .info {
-      flex: 1;
-    }
+    .block-item .info { flex: 1; }
 
     .block-item .actions button {
       background: #e53935;
@@ -216,6 +208,16 @@
       font-size: 16px;
     }
 
+    input[readonly] {
+      background-color: #444;
+      cursor: not-allowed;
+    }
+
+    input[type="checkbox"] {
+      width: auto;
+      margin-right: 10px;
+    }
+
     button {
       padding: 12px;
       background-color: #444;
@@ -245,9 +247,7 @@
       box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
     }
 
-    .mode-status {
-      font-size: 16px;
-    }
+    .mode-status { font-size: 16px; }
 
     .mode-status span {
       font-weight: bold;
@@ -279,11 +279,97 @@
       cursor: pointer;
       font-size: 14px;
       transition: background-color 0.2s;
+      width: auto;
     }
 
     .mode-buttons button:hover {
       background-color: #555;
     }
+
+    /* Estilos de contatos */
+    .contact-item {
+      background: #2a2a2a;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      border-left: 4px solid #4caf50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .contact-item.disabled {
+      border-left-color: #888;
+      opacity: 0.7;
+    }
+
+    .contact-info { flex: 1; }
+
+    .contact-info strong {
+      display: block;
+      font-size: 16px;
+      margin-bottom: 5px;
+    }
+
+    .contact-info small {
+      color: #aaa;
+      font-size: 13px;
+    }
+
+    .contact-status {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      margin-left: 10px;
+      font-weight: bold;
+    }
+
+    .contact-status.active {
+      background: #4caf50;
+      color: #fff;
+    }
+
+    .contact-status.inactive {
+      background: #888;
+      color: #fff;
+    }
+
+    .contact-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .contact-actions button {
+      padding: 8px 12px;
+      font-size: 13px;
+      border-radius: 5px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      width: auto;
+    }
+
+    .btn-edit {
+      background: #2196f3;
+      color: white;
+    }
+
+    .btn-edit:hover { background: #1976d2; }
+
+    .btn-toggle {
+      background: #ff9800;
+      color: white;
+    }
+
+    .btn-toggle:hover { background: #f57c00; }
+
+    .btn-delete {
+      background: #e53935;
+      color: white;
+    }
+
+    .btn-delete:hover { background: #c62828; }
   </style>
 </head>
 <body>
@@ -303,6 +389,17 @@
   <div class="container" id="main-container">
     <!-- DASHBOARD -->
     <div id="dashboard-section">
+      <div class="mode-box">
+        <div class="mode-status">
+          🧭 Modo de mitigação atual: 
+          <span id="modeDisplay" class="block">BLOCK</span>
+        </div>
+        <div class="mode-buttons">
+          <button onclick="setMode('block')">Bloquear</button>
+          <button onclick="setMode('alert')">Apenas Alerta</button>
+        </div>
+      </div>
+
       <div class="overview">
         <div class="card">
           <h3>SWITCHES ATIVOS</h3>
@@ -354,30 +451,40 @@
       <button onclick="blockTraffic()">🔒 Bloquear</button>
     </div>
 
+    <!-- CONFIGURAR CONTATOS -->
     <div id="contacts-section" class="hidden">
       <h2>📧 Configuração de Contatos</h2>
       
       <div class="form-group">
-        <label for="nameInput">Nome</label>
+        <label for="contactId">ID (automático)</label>
+        <input type="text" id="contactId" readonly>
+      </div>
+      
+      <div class="form-group">
+        <label for="nameInput">Nome *</label>
         <input type="text" id="nameInput" placeholder="Nome do Contato">
       </div>
       
       <div class="form-group">
-        <label for="emailInput">E-mail</label>
-        <input type="email" id="emailInput" placeholder="email@example.com">
+        <label for="emailInput">E-mail *</label>
+        <input type="email" id="emailInput" placeholder="email@exemplo.com">
       </div>
       
       <div class="form-group">
-        <label for="enabledCheckbox">Ativar envio de alertas</label>
-        <input type="checkbox" id="enabledCheckbox" checked>
+        <label>
+          <input type="checkbox" id="enabledCheckbox" checked>
+          Ativar envio de alertas
+        </label>
       </div>
       
-      <button onclick="saveContact()"> Salvar Contato</button>
-      
-      <h3>Contatos Cadastrados:</h3>
-      <ul id="contacts-list"></ul>
+      <div style="display: flex; gap: 10px;">
+        <button onclick="saveContact()" style="flex: 1;">💾 Salvar Contato</button>
+        <button onclick="clearContactForm()" style="flex: 1; background: #666;">🔄 Limpar</button>
+      </div>
+
+      <h3 style="margin-top: 30px;">Contatos Cadastrados:</h3>
+      <ul id="contacts-list" style="list-style: none; padding: 0;"></ul>
     </div>
-    
 
     <!-- BLOQUEIOS ATIVOS -->
     <div id="blocked-section" class="hidden">
@@ -389,17 +496,6 @@
     </div>
   </div>
 
-    <div class="mode-box">
-      <div class="mode-status">
-        🧭 Modo de mitigação atual: 
-        <span id="modeDisplay" class="block">BLOCK</span>
-      </div>
-      <div class="mode-buttons">
-        <button onclick="setMode('block')">Bloquear</button>
-        <button onclick="setMode('alert')">Apenas Alerta</button>
-      </div>
-    </div>
-
   <script>
     const sidebar = document.getElementById('sidebar');
     const container = document.getElementById('main-container');
@@ -410,18 +506,31 @@
       container.classList.toggle('full');
     };
 
-    function showSection(section) {
+    // ========== NAVEGAÇÃO ==========
+    async function showSection(section) {
       document.getElementById('dashboard-section').classList.add('hidden');
       document.getElementById('block-section').classList.add('hidden');
       document.getElementById('blocked-section').classList.add('hidden');
+      document.getElementById('contacts-section').classList.add('hidden');
+      
       document.getElementById(section + '-section').classList.remove('hidden');
       
       if (section === 'blocked') {
-        updateBlockedFlows();
+        await updateBlockedFlows();
       }
-      if (section === 'dashboard') fetchMode();
+      if (section === 'dashboard') {
+        await fetchMode();
+        await updateDashboard();
+      }
+      if (section === 'contacts') {
+        await fetchContacts();
+      }
+      if (section === 'block') {
+        await fetchSwitches();
+      }
     }
 
+    // ========== BLOQUEIO DE TRÁFEGO ==========
     async function fetchSwitches() {
       try {
         const response = await fetch('/api/switches');
@@ -434,7 +543,9 @@
           option.text = `Switch ${s}`;
           select.appendChild(option);
         });
-      } catch {}
+      } catch (e) {
+        console.error('Erro ao buscar switches:', e);
+      }
     }
 
     async function blockTraffic() {
@@ -480,7 +591,7 @@
         
         if (result.status === 'success') {
           alert('✅ ' + result.message);
-          updateBlockedFlows();
+          await updateBlockedFlows();
         } else {
           alert('❌ ' + result.message);
         }
@@ -491,8 +602,11 @@
 
     async function updateBlockedFlows() {
       try {
+        console.log('🔍 Carregando bloqueios...');
         const resp = await fetch('/api/blocked');
         const data = await resp.json();
+        
+        console.log('📦 Dados:', data);
         
         document.getElementById('blocks-count').textContent = data.total;
         
@@ -519,11 +633,14 @@
           `;
           list.appendChild(li);
         });
+        
+        console.log('✅ Bloqueios renderizados:', data.blocked.length);
       } catch (e) {
-        console.error('Erro ao carregar bloqueios:', e);
+        console.error('❌ Erro ao carregar bloqueios:', e);
       }
     }
 
+    // ========== DASHBOARD ==========
     let trafficChart;
 
     async function updateDashboard() {
@@ -580,12 +697,12 @@
             alertsList.appendChild(li);
           });
         }
-
       } catch (e) {
         console.error('Erro ao atualizar dashboard:', e);
       }
     }
 
+    // ========== MODO DE MITIGAÇÃO ==========
     async function fetchMode() {
       try {
         const res = await fetch('/api/config/mode');
@@ -608,9 +725,166 @@
         });
         const data = await res.json();
         alert(data.message || 'Modo atualizado');
-        fetchMode();
+        await fetchMode();
       } catch (e) {
         alert('Erro ao mudar o modo: ' + e);
+      }
+    }
+
+    // ========== CONTATOS ==========
+    let editingContactId = null;
+
+    async function saveContact() {
+      const contactId = document.getElementById('contactId').value;
+      const name = document.getElementById('nameInput').value;
+      const email = document.getElementById('emailInput').value;
+      const enabled = document.getElementById('enabledCheckbox').checked;
+
+      if (!name || !email) {
+        alert('❌ Nome e E-mail são obrigatórios');
+        return;
+      }
+
+      try {
+        let url = '/api/contacts';
+        let method = 'POST';
+        
+        if (contactId) {
+          url = `/api/contacts/${contactId}`;
+          method = 'PUT';
+        }
+
+        const res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, enabled })
+        });
+        
+        const result = await res.json();
+
+        if (result.status === 'success') {
+          alert(contactId ? '✅ Contato atualizado!' : '✅ Contato criado!');
+          clearContactForm();
+          await fetchContacts();
+        } else {
+          alert('❌ Erro: ' + result.message);
+        }
+      } catch (e) {
+        alert('❌ Erro: ' + e);
+      }
+    }
+
+    function clearContactForm() {
+      document.getElementById('contactId').value = '';
+      document.getElementById('nameInput').value = '';
+      document.getElementById('emailInput').value = '';
+      document.getElementById('enabledCheckbox').checked = true;
+      editingContactId = null;
+    }
+
+    function editContact(contact) {
+      document.getElementById('contactId').value = contact.id;
+      document.getElementById('nameInput').value = contact.name;
+      document.getElementById('emailInput').value = contact.email;
+      document.getElementById('enabledCheckbox').checked = contact.enabled;
+      
+      document.getElementById('contacts-section').scrollIntoView({ behavior: 'smooth' });
+      
+      setTimeout(() => {
+        document.getElementById('nameInput').focus();
+      }, 500);
+    }
+
+    async function toggleContactStatus(contactId, currentStatus) {
+      try {
+        const res = await fetch(`/api/contacts/${contactId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            name: null,
+            email: null,
+            enabled: !currentStatus
+          })
+        });
+        
+        const result = await res.json();
+
+        if (result.status === 'success') {
+          await fetchContacts();
+        } else {
+          alert('❌ Erro: ' + result.message);
+        }
+      } catch (e) {
+        alert('❌ Erro: ' + e);
+      }
+    }
+
+    async function deleteContact(contactId) {
+      if (!confirm('⚠️ Deseja realmente excluir este contato?')) return;
+
+      try {
+        const res = await fetch(`/api/contacts/${contactId}`, { 
+          method: 'DELETE' 
+        });
+        
+        const result = await res.json();
+
+        if (result.status === 'success') {
+          alert('✅ Contato removido!');
+          clearContactForm();
+          await fetchContacts();
+        } else {
+          alert('❌ Erro: ' + result.message);
+        }
+      } catch (e) {
+        alert('❌ Erro: ' + e);
+      }
+    }
+
+    async function fetchContacts() {
+      try {
+        const res = await fetch('/api/contacts');
+        const data = await res.json();
+        
+        const list = document.getElementById('contacts-list');
+        list.innerHTML = '';
+        
+        if (data.contacts.length === 0) {
+          list.innerHTML = '<li style="text-align:center; color:#888; padding: 20px;">Nenhum contato cadastrado</li>';
+          return;
+        }
+        
+        data.contacts.forEach(contact => {
+          const li = document.createElement('li');
+          li.className = `contact-item ${contact.enabled ? '' : 'disabled'}`;
+          
+          li.innerHTML = `
+            <div class="contact-info">
+              <strong>
+                ${contact.name}
+                <span class="contact-status ${contact.enabled ? 'active' : 'inactive'}">
+                  ${contact.enabled ? '✓ ATIVO' : '✗ INATIVO'}
+                </span>
+              </strong>
+              <small>📧 ${contact.email}</small>
+            </div>
+            <div class="contact-actions">
+              <button class="btn-edit" onclick='editContact(${JSON.stringify(contact)})' title="Editar">
+                ✏️ Editar
+              </button>
+              <button class="btn-toggle" onclick="toggleContactStatus(${contact.id}, ${contact.enabled})" title="Ativar/Desativar">
+                ${contact.enabled ? '🔕 Desativar' : '🔔 Ativar'}
+              </button>
+              <button class="btn-delete" onclick="deleteContact(${contact.id})" title="Remover">
+                🗑️ Remover
+              </button>
+            </div>
+          `;
+          
+          list.appendChild(li);
+        });
+      } catch (e) {
+        console.error('Erro ao carregar contatos:', e);
       }
     }
 
@@ -618,113 +892,11 @@
       await fetchSwitches();
       await fetchMode();
       await updateDashboard();
+      await fetchContacts();
       setInterval(updateDashboard, 10000);
     }
 
-    async function showSection(section) {
-    document.getElementById('dashboard-section').classList.add('hidden');
-    document.getElementById('block-section').classList.add('hidden');
-    document.getElementById('blocked-section').classList.add('hidden');
-    document.getElementById('contacts-section').classList.add('hidden');
-    document.getElementById(section + '-section').classList.remove('hidden');
-  }
-
-  async function saveContact() {
-    const name = document.getElementById('nameInput').value;
-    const email = document.getElementById('emailInput').value;
-    const enabled = document.getElementById('enabledCheckbox').checked;
-
-    if (!name || !email) {
-      alert('❌ Nome e E-mail são obrigatórios');
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/contacts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, enabled })
-      });
-      const result = await res.json();
-
-      if (result.status === 'success') {
-        alert('✅ Contato salvo com sucesso!');
-        document.getElementById('nameInput').value = '';
-        document.getElementById('emailInput').value = '';
-        document.getElementById('enabledCheckbox').checked = true;
-        fetchContacts();  
-      } else {
-        alert('❌ Erro: ' + result.message);
-      }
-    } catch (e) {
-      alert('❌ Erro: ' + e);
-    }
-  }
-
-  async function fetchContacts() {
-    try {
-      const res = await fetch('/api/contacts');
-      const data = await res.json();
-
-      const list = document.getElementById('contacts-list');
-      list.innerHTML = '';
-      
-      data.contacts.forEach(contact => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <strong>${contact.name}</strong> (${contact.email}) 
-          ${contact.enabled ? '[Ativo]' : '[Desativado]'}
-          <button onclick="deleteContact(${contact.id})">🗑️ Remover</button>
-        `;
-        list.appendChild(li);
-      });
-    } catch (e) {
-      console.error('Erro ao carregar contatos:', e);
-    }
-  }
-
-  async function deleteContact(contactId) {
-    if (!confirm('Deseja realmente excluir este contato?')) return;
-
-    try {
-      const res = await fetch(`/api/contacts/${contactId}`, { method: 'DELETE' });
-      const result = await res.json();
-
-      if (result.status === 'success') {
-        alert('✅ Contato removido com sucesso!');
-        fetchContacts();  
-      } else {
-        alert('❌ Erro: ' + result.message);
-      }
-    } catch (e) {
-      alert('❌ Erro: ' + e);
-    }
-  }
-
-  async function fetchContacts() {
-    try {
-      const res = await fetch('/api/contacts');
-      const data = await res.json();
-      
-      const list = document.getElementById('contacts-list');
-      list.innerHTML = '';
-      
-      data.contacts.forEach(contact => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <strong>${contact.name}</strong> (${contact.email}) - 
-          ${contact.enabled ? 'Ativo' : 'Desativado'}
-          <button onclick="deleteContact(${contact.id})">Remover</button>
-        `;
-        list.appendChild(li);
-      });
-    } catch (e) {
-      console.error('Erro ao carregar contatos:', e);
-    }
-  }  
-
     init();
-    fetchContacts();
   </script>
 </body>
 </html>
