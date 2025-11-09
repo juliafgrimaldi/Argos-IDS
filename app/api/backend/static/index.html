@@ -495,7 +495,6 @@
         <ul id="blocks-list"></ul>
       </div>
     </div>
-  </div>
 
   <div id="rules-section" class="hidden">
     <h2>🧩 Regras (Pré-filtro)</h2>
@@ -559,26 +558,19 @@
 
     // ========== NAVEGAÇÃO ==========
     async function showSection(section) {
-      document.getElementById('dashboard-section').classList.add('hidden');
-      document.getElementById('block-section').classList.add('hidden');
-      document.getElementById('blocked-section').classList.add('hidden');
-      document.getElementById('contacts-section').classList.add('hidden');
+      const sections = ['dashboard','block','blocked','contacts','rules'];
+      sections.forEach(s => {
+        const el = document.getElementById(`${s}-section`);
+        if (el) el.classList.add('hidden');
+    });
       
       document.getElementById(section + '-section').classList.remove('hidden');
       
-      if (section === 'blocked') {
-        await updateBlockedFlows();
-      }
-      if (section === 'dashboard') {
-        await fetchMode();
-        await updateDashboard();
-      }
-      if (section === 'contacts') {
-        await fetchContacts();
-      }
-      if (section === 'block') {
-        await fetchSwitches();
-      }
+      if (section === 'dashboard') { await fetchMode(); await updateDashboard(); }
+      if (section === 'blocked')   { await updateBlockedFlows(); }
+      if (section === 'contacts')  { await fetchContacts(); }
+      if (section === 'block')     { await fetchSwitches(); }
+      if (section === 'rules')     { await fetchRulePresets(); await listRules(); }
     }
 
     // ========== BLOQUEIO DE TRÁFEGO ==========

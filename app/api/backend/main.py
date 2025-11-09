@@ -420,42 +420,37 @@ def delete_contact(contact_id: int):
     return {"status": "success"}
 
 @app.get("/api/rules/presets")
-def rule_presets():
-    return {
-        "presets": [
-            {
-                "name": "Bloquear tráfego > 100.000 bytes",
-                "description": "Bloqueia qualquer fluxo que ultrapassar 100 KB transferidos",
-                "action": "block",
-                "max_bytes": 100000
-            },
-            {
-                "name": "Alertar PPS > 500",
-                "description": "Apenas alerta quando pacotes/segundo excede 500",
-                "action": "alert",
-                "max_pps": 500
-            },
-            {
-                "name": "Bloquear ICMP (ping)",
-                "description": "Bloqueia fluxos ICMP",
-                "action": "block",
-                "protocol": "icmp"
-            },
-            {
-                "name": "Bloquear TCP para porta 22",
-                "description": "Bloqueia SSH (porta destino 22)",
-                "action": "block",
-                "protocol": "tcp",
-                "port_dst": 22
-            },
-            {
-                "name": "Bloquear origem 10.0.*.*",
-                "description": "Regex na origem (rede 10.0.x.x)",
-                "action": "block",
-                "ip_src": r"^10\.0\.\d+\.\d+$"
-            }
-        ]
-    }
+def get_rule_presets():
+    presets = [
+        {
+            "name": "Bloquear tráfego > 100.000 bytes",
+            "description": "Aciona quando byte_count exceder 100 KB no fluxo",
+            "max_bytes": 100000,
+            "action": "block"
+        },
+        {
+            "name": "Alertar PPS alto (> 1000)",
+            "description": "Só alerta se packets/seg > 1000",
+            "max_pps": 1000,
+            "action": "alert"
+        },
+        {
+            "name": "Bloquear ICMP broadcast",
+            "description": "Regex simples para destinos 255.255.255.255",
+            "ip_dst": r"^255\.255\.255\.255$",
+            "protocol": "icmp",
+            "action": "block"
+        },
+        {
+            "name": "Bloquear TCP 23 (Telnet)",
+            "description": "Porta destino 23",
+            "protocol": "tcp",
+            "port_dst": 23,
+            "action": "block"
+        }
+    ]
+    return {"presets": presets}
+
 
 
 @app.get("/api/rules")
