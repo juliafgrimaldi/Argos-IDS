@@ -429,7 +429,11 @@ class ControllerAPI(app_manager.RyuApp):
             flows_with_ip = 0
             flows_filtered_empty = 0
             flows_filtered_volumetric = 0
+            flows_filtered_rules = 0
             rules = self._load_filter_rules()
+
+            if rules:
+                self.logger.info(f"📋 Aplicando {len(rules)} regras ativas")
 
             for stat in flow_stats:
                 match = stat.get('match', {})
@@ -477,6 +481,7 @@ class ControllerAPI(app_manager.RyuApp):
                 packet_count_per_nsecond = packet_count / total_duration_nsec
                 byte_count_per_nsecond = byte_count / total_duration_nsec
 
+                rule_matched = False
                 for rule in rules:
                     try:
                         if self._flow_matches_rule(
@@ -491,6 +496,9 @@ class ControllerAPI(app_manager.RyuApp):
                             if rule["action"] == "block" and self.mitigation_mode == "block":
                                 self.block_traffic(dpid, ip_src, ip_dst, in_port)
                                 self.logger.info(f"✅ Bloqueio automático via regra '{rule['name']}'")
+                                flows_filtered_rules += 1
+                                rule_matched = True
+                                break
                             else:
                                 self._notify_contacts(
                                     subject=f"[IDS][RULE] {rule['name']} acionada",
@@ -499,9 +507,11 @@ class ControllerAPI(app_manager.RyuApp):
                                         f"dpid={dpid} | PPS={packet_count_per_second:.2f} | BPS={byte_count_per_second:.2f}"
                                     )
                                 )
-                            break
                     except Exception as e:
                         self.logger.error(f"Erro ao avaliar regra '{rule.get('name')}': {e}")
+
+                if rule_matched:
+                    continue
 
                 if packet_count_per_second > 10000:
                     self.logger.warning("Bloqueio heurístico - ATAQUE VOLUMÉTRICO DETECTADO: {} pps".format(packet_count_per_second))
@@ -912,55 +922,141 @@ class ControllerAPI(app_manager.RyuApp):
 
             compiled = []
             for r in rows:
-                ip_src_re = re.compile(r["ip_src"]) if r["ip_src"] else None
-                ip_dst_re = re.compile(r["ip_dst"]) if r["ip_dst"] else None
-                proto_re  = re.compile(r["protocol"], re.IGNORECASE) if r["protocol"] else None
-                compiled.append({
+                rule = {
                     "id": r["id"],
                     "name": r["name"],
                     "action": (r["action"] or "block").lower(),
-                    "ip_src_re": ip_src_re,
-                    "ip_dst_re": ip_dst_re,
-                    "proto_re": proto_re,
                     "port_src": r["port_src"],
                     "port_dst": r["port_dst"],
                     "max_bytes": r["max_bytes"],
                     "max_packets": r["max_packets"],
                     "max_pps": r["max_pps"],
                     "max_bps": r["max_bps"],
-                })
+                }
+                
+                if r["ip_src"]:
+                    try:
+                        pattern = r["ip_src"]
+                        pattern = pattern.replace('.', r'\.')  
+                        pattern = pattern.replace('*', r'\d+')  
+                        pattern = f"^{pattern}$"
+                        rule["ip_src_re"] = re.compile(pattern)
+                        self.logger.debug(f"Regex IP src compilado: {pattern}")
+                    except Exception as e:
+                        self.logger.error(f"Erro ao compilar regex IP src '{r['ip_src']}': {e}")
+                        rule["ip_src_re"] = None
+                else:
+                    rule["ip_src_re"] = None
+                
+                if r["ip_dst"]:
+                    try:
+                        pattern = r["ip_dst"]
+                        pattern = pattern.replace('.', r'\.')
+                        pattern = pattern.replace('*', r'\d+')
+                        pattern = f"^{pattern}$"
+                        rule["ip_dst_re"] = re.compile(pattern)
+                        self.logger.debug(f"Regex IP dst compilado: {pattern}")
+                    except Exception as e:
+                        self.logger.error(f"Erro ao compilar regex IP dst '{r['ip_dst']}': {e}")
+                        rule["ip_dst_re"] = None
+                else:
+                    rule["ip_dst_re"] = None
+                
+                if r["protocol"]:
+                    try:
+                        protocol_map = {
+                            "TCP": "6", "tcp": "6",
+                            "UDP": "17", "udp": "17",
+                            "ICMP": "1", "icmp": "1"
+                        }
+                        proto_value = protocol_map.get(r["protocol"], r["protocol"])
+                        rule["protocol_value"] = proto_value
+                        self.logger.debug(f"Protocolo definido: {proto_value}")
+                    except Exception as e:
+                        self.logger.error(f"Erro ao processar protocolo '{r['protocol']}': {e}")
+                        rule["protocol_value"] = None
+                else:
+                    rule["protocol_value"] = None
+                
+                compiled.append(rule)
+            
             self.rules_cache = compiled
             self.rules_loaded_at = now
+            
+            self.logger.info(f"✓ Carregadas {len(compiled)} regras ativas do banco")
+            
             return compiled
+            
         except Exception as e:
-            self.logger.warning(f"Falha ao carregar regras: {e}")
+            self.logger.error(f"Falha crítica ao carregar regras: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             return []
 
     def _flow_matches_rule(self, rule, *, ip_src, ip_dst, tp_src, tp_dst, ip_proto,
-                       packet_count, byte_count, pps, bps):
-        if rule["ip_src_re"] and not rule["ip_src_re"].search(str(ip_src)):
-            return False
-        if rule["ip_dst_re"] and not rule["ip_dst_re"].search(str(ip_dst)):
-            return False
-        if rule["proto_re"]:
-            proto_name = {6:"TCP", 17:"UDP", 1:"ICMP"}.get(int(ip_proto), str(ip_proto))
-            if not rule["proto_re"].search(proto_name):
-                return False
-        if rule["port_src"] is not None and int(rule["port_src"]) != int(tp_src or 0):
-            return False
-        if rule["port_dst"] is not None and int(rule["port_dst"]) != int(tp_dst or 0):
-            return False
-        if rule["max_bytes"]   is not None and byte_count   is not None and int(byte_count)   > int(rule["max_bytes"]):
-            return True
-        if rule["max_packets"] is not None and packet_count is not None and int(packet_count) > int(rule["max_packets"]):
-            return True
-        if rule["max_pps"]     is not None and pps is not None and float(pps) > float(rule["max_pps"]):
-            return True
-        if rule["max_bps"]     is not None and bps is not None and float(bps) > float(rule["max_bps"]):
-            return True
+                        packet_count, byte_count, pps, bps):
+        """
+        Verifica se um fluxo corresponde a uma regra
+        Retorna True se corresponder
+        """
+        try:
+            if rule.get("ip_src_re"):
+                if not rule["ip_src_re"].match(str(ip_src)):
+                    return False
+            
+            if rule.get("ip_dst_re"):
+                if not rule["ip_dst_re"].match(str(ip_dst)):
+                    return False
+            
+            if rule.get("protocol_value"):
+                if str(ip_proto) != str(rule["protocol_value"]):
+                    return False
+            
+            if rule.get("port_src") is not None:
+                if int(tp_src or 0) != int(rule["port_src"]):
+                    return False
+            
+            if rule.get("port_dst") is not None:
+                if int(tp_dst or 0) != int(rule["port_dst"]):
+                    return False
+            
+            limit_exceeded = False
+            
+            if rule.get("max_bytes") is not None:
+                if byte_count is not None and int(byte_count) > int(rule["max_bytes"]):
+                    self.logger.debug(f"  Limite de bytes excedido: {byte_count} > {rule['max_bytes']}")
+                    limit_exceeded = True
+            
+            if rule.get("max_packets") is not None:
+                if packet_count is not None and int(packet_count) > int(rule["max_packets"]):
+                    self.logger.debug(f"  Limite de pacotes excedido: {packet_count} > {rule['max_packets']}")
+                    limit_exceeded = True
+            
+            if rule.get("max_pps") is not None:
+                if pps is not None and float(pps) > float(rule["max_pps"]):
+                    self.logger.debug(f"  Limite de PPS excedido: {pps} > {rule['max_pps']}")
+                    limit_exceeded = True
+            
+            if rule.get("max_bps") is not None:
+                if bps is not None and float(bps) > float(rule["max_bps"]):
+                    self.logger.debug(f"  Limite de BPS excedido: {bps} > {rule['max_bps']}")
+                    limit_exceeded = True
+            
 
-        if (rule["ip_src_re"] or rule["ip_dst_re"] or rule["proto_re"]
-            or rule["port_src"] is not None or rule["port_dst"] is not None):
-            return True
-
-        return False
+            has_limits = any([
+                rule.get("max_bytes") is not None,
+                rule.get("max_packets") is not None,
+                rule.get("max_pps") is not None,
+                rule.get("max_bps") is not None
+            ])
+            
+            if has_limits:
+                return limit_exceeded
+            else:
+                return True
+                
+        except Exception as e:
+            self.logger.error(f"Erro ao avaliar regra {rule.get('id', '?')}: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return False
