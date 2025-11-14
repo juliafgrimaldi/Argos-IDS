@@ -1,15 +1,47 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <title>Argos IDS Dashboard</title>
+
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Font Awesome (ícones) -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"/>
+
   <style>
     * { box-sizing: border-box; }
+
+    :root {
+      --bg-main: #0f172a;
+      --bg-elevated: #111827;
+      --bg-card: #020617;
+      --bg-card-alt: #111827;
+      --border-subtle: #1f2937;
+      --accent: #3b82f6;
+      --accent-soft: rgba(59,130,246,0.15);
+      --accent-danger: #ef4444;
+      --accent-danger-soft: rgba(239,68,68,0.15);
+      --accent-success: #22c55e;
+      --accent-warning: #f97316;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --sidebar-width: 260px;
+      --header-height: 64px;
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --shadow-soft: 0 18px 40px rgba(15,23,42,0.7);
+      --transition-fast: 0.18s ease-out;
+    }
+
     body {
-      background-color: #121212;
-      color: #ffffff;
-      font-family: 'Segoe UI', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       margin: 0;
       padding: 0;
       height: 100vh;
@@ -18,57 +50,179 @@
       flex-direction: column;
     }
 
+    /* HEADER SUPERIOR */
     header {
+      position: fixed;
+      top: 0;
+      left: var(--sidebar-width);
+      right: 0;
+      height: var(--header-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 26px;
+      background: radial-gradient(circle at top left, #1e293b 0, #020617 52%, #020617 100%);
+      border-bottom: 1px solid var(--border-subtle);
+      z-index: 1100;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.65);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-mark {
       display: flex;
       align-items: center;
       justify-content: center;
-      background-color: #1f1f1f;
-      padding: 10px 20px;
-      height: 50px;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 1100;
-      border-bottom: 1px solid #333;
-      font-size: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #38bdf8 0, #1d4ed8 40%, #020617 100%);
+      box-shadow: 0 0 0 1px rgba(15,23,42,0.8), 0 0 25px rgba(59,130,246,0.65);
+      overflow: hidden;
+    }
+
+    .logo-mark img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+    }
+
+    .header-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .header-title span:first-child {
+      font-size: 18px;
       font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .header-title span:last-child {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(15,118,110,0.12);
+      border: 1px solid rgba(34,197,94,0.45);
+      color: var(--accent-success);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .status-pill i {
+      font-size: 10px;
     }
 
     #menu-toggle {
       position: fixed;
-      top: 10px;
-      left: 10px;
-      background-color: #333;
-      color: #fff;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 4px;
+      top: 12px;
+      left: 14px;
+      background-color: rgba(15,23,42,0.95);
+      color: #e5e7eb;
+      border: 1px solid var(--border-subtle);
+      padding: 7px 10px;
+      border-radius: 999px;
       cursor: pointer;
-      font-size: 18px;
+      font-size: 16px;
       z-index: 1200;
+      display: none;
     }
 
+    /* SIDEBAR */
     aside {
       position: fixed;
-      top: 50px;
+      top: 0;
       left: 0;
-      width: 220px;
-      height: calc(100vh - 50px);
-      background-color: #1f1f1f;
-      padding: 20px;
-      border-right: 1px solid #333;
+      width: var(--sidebar-width);
+      height: 100vh;
+      background: radial-gradient(circle at top, #111827 0, #020617 55%, #020617 100%);
+      padding: 18px 18px 16px;
+      border-right: 1px solid var(--border-subtle);
       overflow-y: auto;
-      transition: transform 0.3s ease;
+      transition: transform var(--transition-fast);
       z-index: 1050;
     }
 
-    aside.collapsed { transform: translateX(-100%); }
+    aside.collapsed {
+      transform: translateX(-100%);
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+      padding: 8px 6px 4px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.6);
+    }
+
+    .sidebar-logo-mark {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #38bdf8 0, #1d4ed8 45%, #020617 100%);
+      box-shadow: 0 0 0 1px rgba(15,23,42,0.9), 0 0 18px rgba(59,130,246,0.7);
+      overflow: hidden;
+    }
+
+    .sidebar-logo-mark img {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+    }
+
+    .sidebar-brand {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .sidebar-brand span:first-child {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .sidebar-brand span:last-child {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
 
     aside h2 {
-      font-size: 18px;
-      margin-bottom: 10px;
-      color: #ccc;
+      font-size: 11px;
+      margin: 8px 4px 6px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
     }
 
     aside ul {
@@ -78,494 +232,1010 @@
     }
 
     aside ul li {
-      margin: 10px 0;
+      margin: 4px 0;
       cursor: pointer;
-      color: #ccc;
-      padding: 6px 4px;
-      border-radius: 4px;
-      transition: background-color 0.2s;
+      color: var(--text-muted);
+      padding: 9px 10px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      transition: background-color var(--transition-fast), color var(--transition-fast),
+                  transform 0.08s ease-out, box-shadow var(--transition-fast);
+    }
+
+    aside ul li i {
+      width: 16px;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    aside ul li span {
+      flex: 1;
     }
 
     aside ul li:hover {
-      color: #fff;
-      background-color: #333;
+      color: #e5e7eb;
+      background: rgba(30,64,175,0.25);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 18px rgba(15,23,42,0.75);
     }
 
+    aside ul li.active {
+      color: #e5e7eb;
+      background: linear-gradient(90deg, #2563eb, #4f46e5);
+      box-shadow: 0 12px 26px rgba(37,99,235,0.7);
+    }
+
+    /* CONTAINER PRINCIPAL */
     .container {
-      margin-top: 50px;
-      margin-left: 220px;
-      padding: 20px;
-      height: calc(100vh - 50px);
+      margin-top: var(--header-height);
+      margin-left: var(--sidebar-width);
+      padding: 22px 28px 26px;
+      height: calc(100vh - var(--header-height));
       overflow-y: auto;
-      transition: margin-left 0.3s ease;
+      transition: margin-left var(--transition-fast);
+      background: radial-gradient(circle at top left, #111827 0, #020617 55%, #020617 100%);
     }
 
-    .container.full { margin-left: 0; }
+    .container.full {
+      margin-left: 0;
+    }
 
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      letter-spacing: 0.03em;
+    }
+
+    /* CARDS / OVERVIEW */
     .overview {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 15px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 22px;
     }
 
     .overview .card {
-      background: #1e1e1e;
-      border-radius: 8px;
-      padding: 20px;
-      text-align: center;
-      box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+      position: relative;
+      background: radial-gradient(circle at top left, #111827 0, #020617 55%);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px 14px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(31,41,55,0.9);
+      overflow: hidden;
+    }
+
+    .overview .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(59,130,246,0.22), transparent 55%);
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .overview .card-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .overview .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
     }
 
     .overview .card h3 {
-      font-size: 14px;
-      color: #bbb;
+      font-size: 11px;
+      color: var(--text-muted);
       margin: 0;
       font-weight: 500;
       text-transform: uppercase;
+      letter-spacing: 0.14em;
+    }
+
+    .overview .card-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(55,65,81,0.9);
+      font-size: 13px;
+      color: var(--accent);
     }
 
     .overview .card p {
       font-size: 28px;
-      margin: 10px 0;
+      margin: 4px 0 0;
       font-weight: 600;
     }
 
-    .overview .card .green { color: #4caf50; }
-    .overview .card .red { color: #e53935; }
-    .overview .card .orange { color: #ff9800; }
+    .overview .card .green { color: var(--accent-success); }
+    .overview .card .red { color: var(--accent-danger); }
+    .overview .card .orange { color: var(--accent-warning); }
 
-    .alerts, .blocks-list {
-      background: #1e1e1e;
-      padding: 15px;
-      border-radius: 8px;
-      margin-top: 20px;
-      box-shadow: 0 0 5px rgba(255,255,255,0.1);
+    /* MODO DE MITIGAÇÃO */
+    .mode-box {
+      background: radial-gradient(circle at top left, #111827 0, #020617 70%);
+      padding: 16px 18px;
+      border-radius: var(--radius-lg);
+      margin-bottom: 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(31,41,55,0.9);
     }
 
-    .alerts h3, .blocks-list h3 {
-      margin: 0 0 15px 0;
-      font-size: 16px;
+    .mode-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
-    .alerts ul, .blocks-list ul {
+    .mode-label {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .mode-status {
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mode-status-label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .mode-status span {
+      font-weight: 600;
+      padding: 4px 11px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+
+    .mode-status .block {
+      background: rgba(22,163,74,0.15);
+      color: var(--accent-success);
+      border-color: rgba(22,163,74,0.6);
+    }
+
+    .mode-status .alert {
+      background: var(--accent-danger-soft);
+      color: var(--accent-danger);
+      border-color: rgba(239,68,68,0.7);
+    }
+
+    .mode-buttons {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(15,23,42,0.95);
+      padding: 4px;
+      border-radius: 999px;
+      border: 1px solid rgba(31,41,55,0.9);
+      gap: 4px;
+    }
+
+    .mode-buttons button {
+      background-color: transparent;
+      color: var(--text-muted);
+      border: none;
+      padding: 7px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background-color var(--transition-fast), color var(--transition-fast),
+                  transform 0.08s ease-out, box-shadow var(--transition-fast);
+      width: auto;
+    }
+
+    .mode-buttons button i {
+      font-size: 13px;
+    }
+
+    .mode-buttons button.active {
+      color: #e5e7eb;
+      background: linear-gradient(90deg, #2563eb, #4f46e5);
+      box-shadow: 0 10px 20px rgba(37,99,235,0.8);
+      transform: translateY(-0.5px);
+    }
+
+    .mode-buttons button:hover:not(.active) {
+      background-color: rgba(31,41,55,0.9);
+    }
+
+    /* ALERTAS E BLOQUEIOS */
+    .alerts,
+    .blocks-list {
+      background: radial-gradient(circle at top left, #0b1120 0, #020617 65%);
+      padding: 14px 16px;
+      border-radius: var(--radius-lg);
+      margin-top: 18px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(31,41,55,0.95);
+    }
+
+    .alerts h3,
+    .blocks-list h3 {
+      margin: 0 0 12px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .alerts h3 i,
+    .blocks-list h3 i {
+      font-size: 14px;
+      color: var(--accent-danger);
+    }
+
+    .alerts ul,
+    .blocks-list ul {
       list-style: none;
       margin: 0;
       padding: 0;
     }
 
-    .alerts li, .blocks-list li {
-      padding: 10px;
+    .alerts li,
+    .blocks-list li {
+      padding: 9px 11px;
       margin-bottom: 8px;
-      border-radius: 5px;
-      background: #2a2a2a;
-      font-size: 14px;
+      border-radius: var(--radius-md);
+      background: rgba(15,23,42,0.9);
+      font-size: 13px;
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
+      border: 1px solid rgba(31,41,55,0.95);
+      gap: 8px;
     }
 
-    .alerts .alert.red { border-left: 4px solid #e53935; }
+    .alert-tag {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      border-radius: 999px;
+      padding: 3px 8px;
+      border: 1px solid rgba(239,68,68,0.7);
+      color: var(--accent-danger);
+      background: var(--accent-danger-soft);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .alert-meta {
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-top: 2px;
+    }
 
     .block-item {
-      border-left: 4px solid #ff9800;
+      border-left: 3px solid var(--accent-warning);
     }
 
-    .block-item .info { flex: 1; }
+    .block-item .info {
+      flex: 1;
+    }
 
     .block-item .actions button {
-      background: #e53935;
-      color: #fff;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 4px;
+      background: rgba(248,250,252,0.02);
+      color: #e5e7eb;
+      border: 1px solid rgba(148,163,184,0.7);
+      padding: 6px 11px;
+      border-radius: 999px;
       cursor: pointer;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background-color var(--transition-fast), border-color var(--transition-fast),
+                  transform 0.08s ease-out, box-shadow var(--transition-fast);
+    }
+
+    .block-item .actions button i {
       font-size: 12px;
     }
 
     .block-item .actions button:hover {
-      background: #c62828;
+      background: linear-gradient(90deg, #16a34a, #22c55e);
+      border-color: transparent;
+      box-shadow: 0 10px 22px rgba(34,197,94,0.8);
+      transform: translateY(-0.5px);
     }
 
+    /* GRÁFICO */
     #chart-container {
-      background-color: #1e1e1e;
-      padding: 20px;
-      border-radius: 10px;
-      height: 400px;
-      margin-top: 20px;
+      background-color: var(--bg-elevated);
+      padding: 16px 18px;
+      border-radius: var(--radius-lg);
+      height: 360px;
+      margin-top: 18px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(31,41,55,0.95);
+    }
+
+    #chart-container h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
     }
 
     .hidden { display: none; }
 
-    select, input {
-      background-color: #2e2e2e;
-      color: #fff;
-      padding: 10px;
-      margin: 10px 0 20px;
-      border-radius: 5px;
-      border: none;
+    /* FORM / INPUTS */
+    select,
+    input {
+      background-color: rgba(15,23,42,0.95);
+      color: #f9fafb;
+      padding: 9px 10px;
+      margin: 8px 0 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(31,41,55,0.95);
       width: 100%;
-      font-size: 16px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast),
+                  background-color var(--transition-fast), transform 0.05s ease-out;
+    }
+
+    select:focus,
+    input:focus {
+      border-color: rgba(59,130,246,0.85);
+      box-shadow: 0 0 0 1px rgba(59,130,246,0.6), 0 12px 28px rgba(30,64,175,0.65);
+      background-color: #020617;
+      transform: translateY(-0.5px);
     }
 
     input[readonly] {
-      background-color: #444;
+      background-color: #111827;
       cursor: not-allowed;
+      color: var(--text-muted);
     }
 
     input[type="checkbox"] {
       width: auto;
-      margin-right: 10px;
+      margin-right: 8px;
+      accent-color: var(--accent);
+    }
+
+    label {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .form-group {
+      margin-bottom: 10px;
     }
 
     button {
-      padding: 12px;
-      background-color: #444;
-      color: #fff;
+      padding: 10px 10px;
+      background: linear-gradient(90deg, #1d4ed8, #4f46e5);
+      color: #e5e7eb;
       border: none;
-      border-radius: 5px;
+      border-radius: 999px;
       cursor: pointer;
-      font-size: 16px;
+      font-size: 14px;
+      font-weight: 500;
       width: 100%;
-      transition: background-color 0.3s;
+      transition: background var(--transition-fast), box-shadow var(--transition-fast),
+                  transform 0.08s ease-out;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
 
-    button:hover { background-color: #555; }
+    button i {
+      font-size: 14px;
+    }
 
-    label { font-size: 14px; }
+    button:hover {
+      box-shadow: 0 14px 32px rgba(37,99,235,0.9);
+      transform: translateY(-0.5px);
+    }
 
-    .form-group { margin-bottom: 15px; }
+    button.secondary {
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(55,65,81,0.9);
+      color: var(--text-main);
+    }
 
-    .mode-box {
-      background: #1e1e1e;
-      padding: 15px 20px;
-      border-radius: 8px;
-      margin-bottom: 20px;
+    button.secondary:hover {
+      background: rgba(30,64,175,0.4);
+      border-color: rgba(59,130,246,0.85);
+      box-shadow: 0 14px 32px rgba(30,64,175,0.8);
+    }
+
+    .contact-item {
+      background: rgba(15,23,42,0.9);
+      padding: 13px 12px;
+      margin-bottom: 10px;
+      border-radius: var(--radius-md);
+      border-left: 3px solid var(--accent-success);
+      border-right: 1px solid rgba(31,41,55,0.95);
+      border-top: 1px solid rgba(31,41,55,0.95);
+      border-bottom: 1px solid rgba(31,41,55,0.95);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
-    }
-
-    .mode-status { font-size: 16px; }
-
-    .mode-status span {
-      font-weight: bold;
-      padding: 5px 10px;
-      border-radius: 6px;
-    }
-
-    .mode-status .block {
-      background: #4caf50;
-      color: #fff;
-    }
-
-    .mode-status .alert {
-      background: #e53935;
-      color: #fff;
-    }
-
-    .mode-buttons {
-      display: flex;
       gap: 10px;
     }
 
-    .mode-buttons button {
-      background-color: #333;
-      color: #fff;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: background-color 0.2s;
-      width: auto;
-    }
-
-    .mode-buttons button:hover {
-      background-color: #555;
-    }
-
-    /* Estilos de contatos */
-    .contact-item {
-      background: #2a2a2a;
-      padding: 15px;
-      margin-bottom: 10px;
-      border-radius: 8px;
-      border-left: 4px solid #4caf50;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
     .contact-item.disabled {
-      border-left-color: #888;
-      opacity: 0.7;
+      border-left-color: #6b7280;
+      opacity: 0.75;
     }
 
-    .contact-info { flex: 1; }
+    .contact-info {
+      flex: 1;
+    }
 
     .contact-info strong {
-      display: block;
-      font-size: 16px;
-      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      margin-bottom: 3px;
     }
 
     .contact-info small {
-      color: #aaa;
-      font-size: 13px;
+      color: var(--text-muted);
+      font-size: 12px;
     }
 
     .contact-status {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      margin-left: 10px;
-      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      border: 1px solid transparent;
     }
 
     .contact-status.active {
-      background: #4caf50;
-      color: #fff;
+      background: rgba(22,163,74,0.15);
+      color: var(--accent-success);
+      border-color: rgba(22,163,74,0.65);
     }
 
     .contact-status.inactive {
-      background: #888;
-      color: #fff;
+      background: rgba(75,85,99,0.35);
+      color: #e5e7eb;
+      border-color: rgba(75,85,99,0.9);
     }
 
     .contact-actions {
       display: flex;
-      gap: 8px;
+      gap: 6px;
     }
 
     .contact-actions button {
-      padding: 8px 12px;
-      font-size: 13px;
-      border-radius: 5px;
+      padding: 7px 10px;
+      font-size: 12px;
+      border-radius: 999px;
       cursor: pointer;
-      border: none;
-      transition: all 0.2s;
+      border: 1px solid transparent;
+      transition: all var(--transition-fast);
       width: auto;
     }
 
     .btn-edit {
-      background: #2196f3;
-      color: white;
+      background: rgba(37,99,235,0.1);
+      color: #bfdbfe;
+      border-color: rgba(59,130,246,0.7);
     }
 
-    .btn-edit:hover { background: #1976d2; }
+    .btn-edit:hover {
+      background: rgba(59,130,246,0.85);
+      color: #e5e7eb;
+      box-shadow: 0 12px 24px rgba(37,99,235,0.9);
+    }
 
     .btn-toggle {
-      background: #ff9800;
-      color: white;
+      background: rgba(249,115,22,0.08);
+      color: #fed7aa;
+      border-color: rgba(249,115,22,0.7);
     }
 
-    .btn-toggle:hover { background: #f57c00; }
+    .btn-toggle:hover {
+      background: rgba(249,115,22,0.95);
+      color: #0f172a;
+      box-shadow: 0 12px 24px rgba(248,113,22,0.9);
+    }
 
     .btn-delete {
-      background: #e53935;
-      color: white;
+      background: rgba(248,113,113,0.08);
+      color: #fecaca;
+      border-color: rgba(239,68,68,0.7);
     }
 
-    .btn-delete:hover { background: #c62828; }
+    .btn-delete:hover {
+      background: rgba(239,68,68,0.95);
+      color: #f9fafb;
+      box-shadow: 0 12px 24px rgba(239,68,68,0.95);
+    }
+
+    details summary {
+      cursor: pointer;
+      list-style: none;
+      font-size: 13px;
+      color: var(--text-main);
+    }
+
+    details summary::-webkit-details-marker {
+      display: none;
+    }
+
+    details {
+      padding: 8px 10px;
+      background: rgba(15,23,42,0.9);
+      border-radius: 10px;
+      border: 1px solid rgba(31,41,55,0.95);
+      margin-bottom: 10px;
+    }
+
+    details[open] {
+      border-color: rgba(59,130,246,0.7);
+      box-shadow: 0 12px 28px rgba(37,99,235,0.75);
+    }
+
+    /* TOAST DE ERRO */
+    .toast {
+      position: fixed;
+      right: 26px;
+      bottom: 24px;
+      min-width: 260px;
+      max-width: 360px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--accent-danger-soft);
+      border: 1px solid rgba(248,113,113,0.9);
+      box-shadow: 0 14px 34px rgba(127,29,29,0.9);
+      color: #fee2e2;
+      font-size: 13px;
+      display: none;
+      z-index: 1400;
+    }
+
+    .toast-header {
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast-header i {
+      color: #fecaca;
+      font-size: 15px;
+    }
+
+    .toast-close {
+      margin-left: auto;
+      cursor: pointer;
+      opacity: 0.8;
+      font-size: 12px;
+    }
+
+    .toast-message {
+      font-size: 12px;
+      color: #fee2e2;
+    }
+
+    /* RESPONSIVO */
+    @media (max-width: 960px) {
+      #menu-toggle { display: inline-flex; }
+      aside { transform: translateX(-100%); }
+      aside.collapsed { transform: translateX(0); }
+      header { left: 0; }
+      .container { margin-left: 0; padding: 18px 18px 22px; }
+    }
+
+    @media (max-width: 640px) {
+      .mode-box { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .header-right { display: none; }
+    }
   </style>
 </head>
 <body>
-  <header>🛡️ ARGOS IDS</header>
-  <button id="menu-toggle">☰</button>
+  <button id="menu-toggle" title="Mostrar/ocultar menu">
+    <i class="fa-solid fa-bars"></i>
+  </button>
 
+  <!-- SIDEBAR -->
   <aside id="sidebar">
-    <h2>Menu</h2>
+    <div class="sidebar-header">
+      <div class="sidebar-logo-mark">
+        <!-- Ajuste o caminho da imagem -->
+        <img src="./argos-logo.png" alt="Argos IDS logo">
+      </div>
+      <div class="sidebar-brand">
+        <span>ARGOS IDS</span>
+        <span>NETWORK DEFENSE</span>
+      </div>
+    </div>
+
+    <h2>Visão geral</h2>
+    <ul id="nav-list">
+      <li data-section="dashboard" class="active">
+        <i class="fa-solid fa-chart-line"></i>
+        <span>Dashboard</span>
+      </li>
+      <li data-section="block">
+        <i class="fa-solid fa-ban"></i>
+        <span>Bloquear tráfego</span>
+      </li>
+      <li data-section="blocked">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>Bloqueios ativos</span>
+      </li>
+    </ul>
+
+    <h2>Configuração</h2>
     <ul>
-      <li onclick="showSection('dashboard')">📊 Dashboard</li>
-      <li onclick="showSection('block')">🚫 Bloquear Tráfego</li>
-      <li onclick="showSection('blocked')">📋 Bloqueios Ativos</li>
-      <li onclick="showSection('contacts')">📧 Configurar Contatos</li>
-      <li onclick="showSection('rules')">🧩 Regras (Pré-filtro)</li>
+      <li data-section="contacts">
+        <i class="fa-solid fa-envelope"></i>
+        <span>Contatos de alerta</span>
+      </li>
+      <li data-section="rules">
+        <i class="fa-solid fa-filter-circle-xmark"></i>
+        <span>Regras (pré-filtro)</span>
+      </li>
     </ul>
   </aside>
 
+  <!-- HEADER SUPERIOR -->
+  <header>
+    <div class="header-left">
+      <div class="logo-mark">
+        <img src="./argos-logo.png" alt="Argos IDS logo">
+      </div>
+      <div class="header-title">
+        <span>ARGOS IDS Dashboard</span>
+        <span>Detecção e mitigação de ataques volumétricos em SDN</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-pill">
+        <i class="fa-solid fa-circle"></i>
+        <span>Engine online</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ÁREA PRINCIPAL -->
   <div class="container" id="main-container">
     <!-- DASHBOARD -->
     <div id="dashboard-section">
       <div class="mode-box">
-        <div class="mode-status">
-          🧭 Modo de mitigação atual: 
-          <span id="modeDisplay" class="block">BLOCK</span>
+        <div class="mode-left">
+          <div class="mode-label">Modo de mitigação</div>
+          <div class="mode-status">
+            <span class="mode-status-label">Estado atual:</span>
+            <span id="modeDisplay" class="block">BLOCK</span>
+          </div>
         </div>
         <div class="mode-buttons">
-          <button onclick="setMode('block')">Bloquear</button>
-          <button onclick="setMode('alert')">Apenas Alerta</button>
+          <button id="btn-mode-block" onclick="setMode('block')" class="active">
+            <i class="fa-solid fa-shield"></i>
+            <span>Bloquear</span>
+          </button>
+          <button id="btn-mode-alert" onclick="setMode('alert')">
+            <i class="fa-solid fa-bell"></i>
+            <span>Apenas alerta</span>
+          </button>
         </div>
       </div>
 
       <div class="overview">
         <div class="card">
-          <h3>SWITCHES ATIVOS</h3>
-          <p id="switches">-</p>
+          <div class="card-content">
+            <div class="card-header">
+              <h3>Switches ativos</h3>
+              <div class="card-icon"><i class="fa-solid fa-network-wired"></i></div>
+            </div>
+            <p id="switches">-</p>
+          </div>
         </div>
+
         <div class="card">
-          <h3>HOSTS ATIVOS</h3>
-          <p id="hosts">-</p>
+          <div class="card-content">
+            <div class="card-header">
+              <h3>Hosts ativos</h3>
+              <div class="card-icon"><i class="fa-solid fa-wave-square"></i></div>
+            </div>
+            <p id="hosts">-</p>
+          </div>
         </div>
+
         <div class="card">
-          <h3>TRÁFEGO SUSPEITO</h3>
-          <p id="suspiciousTraffic" class="orange">-</p>
+          <div class="card-content">
+            <div class="card-header">
+              <h3>Tráfego suspeito</h3>
+              <div class="card-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            </div>
+            <p id="suspiciousTraffic" class="orange">-</p>
+          </div>
         </div>
+
         <div class="card">
-          <h3>TRÁFEGO LEGÍTIMO</h3>
-          <p id="legitTraffic" class="green">-</p>
+          <div class="card-content">
+            <div class="card-header">
+              <h3>Tráfego legítimo</h3>
+              <div class="card-icon"><i class="fa-solid fa-circle-check"></i></div>
+            </div>
+            <p id="legitTraffic" class="green">-</p>
+          </div>
         </div>
+
         <div class="card">
-          <h3>REGRAS ATIVAS</h3>
-          <p id="rules">-</p>
+          <div class="card-content">
+            <div class="card-header">
+              <h3>Regras ativas</h3>
+              <div class="card-icon"><i class="fa-solid fa-layer-group"></i></div>
+            </div>
+            <p id="rules">-</p>
+          </div>
         </div>
       </div>
 
       <div id="chart-container">
+        <h3>Network Traffic Analysis</h3>
         <canvas id="trafficChart"></canvas>
       </div>
 
       <div class="alerts">
-        <h3>🚨 Alertas Recentes</h3>
+        <h3><i class="fa-solid fa-bell"></i> Alertas recentes</h3>
         <ul id="alerts-list"></ul>
       </div>
     </div>
 
     <!-- BLOQUEAR TRÁFEGO -->
     <div id="block-section" class="hidden">
-      <h2>🚫 Bloquear Tráfego</h2>
-      <div class="form-group">
-        <label for="switchSelect">Switch</label>
-        <select id="switchSelect"></select>
+      <div class="section-title">Bloquear tráfego</div>
+      <div class="alerts" style="margin-top:0">
+        <div class="form-group">
+          <label for="switchSelect">Switch</label>
+          <select id="switchSelect"></select>
+        </div>
+        <div class="form-group">
+          <label for="srcInput">IP de origem</label>
+          <input type="text" id="srcInput" placeholder="10.0.0.1">
+        </div>
+        <div class="form-group">
+          <label for="dstInput">IP de destino</label>
+          <input type="text" id="dstInput" placeholder="10.0.0.2">
+        </div>
+        <button onclick="blockTraffic()">
+          <i class="fa-solid fa-ban"></i>
+          <span>Aplicar bloqueio</span>
+        </button>
       </div>
-      <div class="form-group">
-        <label for="srcInput">IP Origem</label>
-        <input type="text" id="srcInput" placeholder="10.0.0.1">
-      </div>
-      <div class="form-group">
-        <label for="dstInput">IP Destino</label>
-        <input type="text" id="dstInput" placeholder="10.0.0.2">
-      </div>
-      <button onclick="blockTraffic()">🔒 Bloquear</button>
     </div>
 
     <!-- CONFIGURAR CONTATOS -->
     <div id="contacts-section" class="hidden">
-      <h2>📧 Configuração de Contatos</h2>
-      
-      <div class="form-group">
-        <label for="contactId">ID (automático)</label>
-        <input type="text" id="contactId" readonly>
-      </div>
-      
-      <div class="form-group">
-        <label for="nameInput">Nome *</label>
-        <input type="text" id="nameInput" placeholder="Nome do Contato">
-      </div>
-      
-      <div class="form-group">
-        <label for="emailInput">E-mail *</label>
-        <input type="email" id="emailInput" placeholder="email@exemplo.com">
-      </div>
-      
-      <div class="form-group">
-        <label>
-          <input type="checkbox" id="enabledCheckbox" checked>
-          Ativar envio de alertas
-        </label>
-      </div>
-      
-      <div style="display: flex; gap: 10px;">
-        <button onclick="saveContact()" style="flex: 1;">💾 Salvar Contato</button>
-        <button onclick="clearContactForm()" style="flex: 1; background: #666;">🔄 Limpar</button>
+      <div class="section-title">Configuração de contatos</div>
+
+      <div class="alerts" style="margin-top:0">
+        <div class="form-group">
+          <label for="contactId">ID (automático)</label>
+          <input type="text" id="contactId" readonly>
+        </div>
+
+        <div class="form-group">
+          <label for="nameInput">Nome *</label>
+          <input type="text" id="nameInput" placeholder="Nome do contato">
+        </div>
+
+        <div class="form-group">
+          <label for="emailInput">E-mail *</label>
+          <input type="email" id="emailInput" placeholder="email@exemplo.com">
+        </div>
+
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="enabledCheckbox" checked>
+            Ativar envio de alertas
+          </label>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:8px;">
+          <button onclick="saveContact()" style="flex:1;">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Salvar contato</span>
+          </button>
+          <button onclick="clearContactForm()" class="secondary" style="flex:1;">
+            <i class="fa-solid fa-rotate"></i>
+            <span>Limpar</span>
+          </button>
+        </div>
       </div>
 
-      <h3 style="margin-top: 30px;">Contatos Cadastrados:</h3>
-      <ul id="contacts-list" style="list-style: none; padding: 0;"></ul>
+      <div class="blocks-list">
+        <h3><i class="fa-solid fa-address-book"></i> Contatos cadastrados</h3>
+        <ul id="contacts-list" style="list-style:none; padding:0;"></ul>
+      </div>
     </div>
 
     <!-- BLOQUEIOS ATIVOS -->
     <div id="blocked-section" class="hidden">
-      <h2>📋 Bloqueios Ativos</h2>
+      <div class="section-title">Bloqueios ativos</div>
       <div class="blocks-list">
-        <h3>Total de bloqueios: <span id="blocks-count">0</span></h3>
+        <h3><i class="fa-solid fa-shield-halved"></i> Total de bloqueios: <span id="blocks-count">0</span></h3>
         <ul id="blocks-list"></ul>
       </div>
     </div>
 
-  <div id="rules-section" class="hidden">
-    <h2>🧩 Regras (Pré-filtro)</h2>
-  
-    <div class="alerts">
-      <h3>Criar regra rápida</h3>
-      <div class="form-group">
-        <label>Nome</label>
-        <input id="ruleName" placeholder="Ex.: Bloquear >100 KB">
+    <!-- REGRAS -->
+    <div id="rules-section" class="hidden">
+      <div class="section-title">Regras de pré-filtro (Regex + limites)</div>
+
+      <div class="alerts">
+        <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Criar regra rápida</h3>
+        <div class="form-group">
+          <label>Nome</label>
+          <input id="ruleName" placeholder="Ex.: Bloquear >100 KB">
+        </div>
+
+        <div class="form-group">
+          <label>Ação</label>
+          <select id="ruleAction">
+            <option value="block">Bloquear</option>
+            <option value="alert">Apenas alertar</option>
+          </select>
+        </div>
+
+        <details style="margin-bottom:10px;">
+          <summary><strong>Filtros por campos</strong></summary>
+          <div class="form-group">
+            <label>IP origem (regex opcional)</label>
+            <input id="ruleIpSrc" placeholder="ex.: ^10\\.0\\.\\d+\\.\\d+$">
+          </div>
+          <div class="form-group">
+            <label>IP destino (regex opcional)</label>
+            <input id="ruleIpDst" placeholder="ex.: ^192\\.168\\..*">
+          </div>
+          <div class="form-group">
+            <label>Protocolo (TCP/UDP/ICMP ou regex)</label>
+            <input id="ruleProto" placeholder="ex.: tcp">
+          </div>
+          <div class="form-group">
+            <label>Porta origem (exata)</label>
+            <input id="rulePortSrc" type="number" min="0" max="65535" placeholder="ex.: 12345">
+          </div>
+          <div class="form-group">
+            <label>Porta destino (exata)</label>
+            <input id="rulePortDst" type="number" min="0" max="65535" placeholder="ex.: 22">
+          </div>
+        </details>
+
+        <details>
+          <summary><strong>Limites (acionam a regra quando excedidos)</strong></summary>
+          <div class="form-group">
+            <label>Bytes &gt;</label>
+            <input id="ruleMaxBytes" type="number" placeholder="ex.: 100000">
+          </div>
+          <div class="form-group">
+            <label>Pacotes &gt;</label>
+            <input id="ruleMaxPkts" type="number" placeholder="ex.: 1000">
+          </div>
+          <div class="form-group">
+            <label>PPS &gt;</label>
+            <input id="ruleMaxPps" type="number" placeholder="ex.: 500">
+          </div>
+          <div class="form-group">
+            <label>BPS &gt;</label>
+            <input id="ruleMaxBps" type="number" placeholder="ex.: 1000000">
+          </div>
+        </details>
+
+        <button onclick="createRule()">
+          <i class="fa-solid fa-plus"></i>
+          <span>Criar regra</span>
+        </button>
       </div>
-  
-      <div class="form-group">
-        <label>Ação</label>
-        <select id="ruleAction">
-          <option value="block">Bloquear</option>
-          <option value="alert">Apenas alertar</option>
-        </select>
+
+      <div class="alerts">
+        <h3><i class="fa-solid fa-bolt"></i> Presets (clique para carregar)</h3>
+        <ul id="presetList"></ul>
       </div>
-  
-      <details style="margin-bottom:10px;">
-        <summary><strong>Filtros por campos (fáceis)</strong></summary>
-        <div class="form-group"><label>IP origem (regex opcional)</label><input id="ruleIpSrc" placeholder="ex.: ^10\.0\.\d+\.\d+$"></div>
-        <div class="form-group"><label>IP destino (regex opcional)</label><input id="ruleIpDst" placeholder="ex.: ^192\.168\..*"></div>
-        <div class="form-group"><label>Protocolo (TCP/UDP/ICMP ou regex)</label><input id="ruleProto" placeholder="ex.: tcp"></div>
-        <div class="form-group"><label>Porta origem (exata)</label><input id="rulePortSrc" type="number" min="0" max="65535" placeholder="ex.: 12345"></div>
-        <div class="form-group"><label>Porta destino (exata)</label><input id="rulePortDst" type="number" min="0" max="65535" placeholder="ex.: 22"></div>
-      </details>
-  
-      <details>
-        <summary><strong>Limites (acionam a regra quando excedidos)</strong></summary>
-        <div class="form-group"><label>Bytes > </label><input id="ruleMaxBytes" type="number" placeholder="ex.: 100000"></div>
-        <div class="form-group"><label>Pacotes > </label><input id="ruleMaxPkts" type="number" placeholder="ex.: 1000"></div>
-        <div class="form-group"><label>PPS > </label><input id="ruleMaxPps" type="number" placeholder="ex.: 500"></div>
-        <div class="form-group"><label>BPS > </label><input id="ruleMaxBps" type="number" placeholder="ex.: 1000000"></div>
-      </details>
-  
-      <button onclick="createRule()">➕ Criar regra</button>
-    </div>
-  
-    <div class="alerts">
-      <h3>Presets (clique para carregar)</h3>
-      <ul id="presetList"></ul>
-    </div>
-  
-    <div class="blocks-list">
-      <h3>Regras ativas</h3>
-      <ul id="ruleList"></ul>
+
+      <div class="blocks-list">
+        <h3><i class="fa-solid fa-layer-group"></i> Regras ativas</h3>
+        <ul id="ruleList"></ul>
+      </div>
     </div>
   </div>
-  
+
+  <!-- Toast de erro -->
+  <div id="toast" class="toast">
+    <div class="toast-header">
+      <i class="fa-solid fa-circle-exclamation"></i>
+      <span id="toast-title">Erro</span>
+      <span class="toast-close" onclick="hideToast()"><i class="fa-solid fa-xmark"></i></span>
+    </div>
+    <div id="toast-message" class="toast-message"></div>
+  </div>
 
   <script>
-    const sidebar = document.getElementById('sidebar');
+    const sidebar   = document.getElementById('sidebar');
     const container = document.getElementById('main-container');
     const menuToggle = document.getElementById('menu-toggle');
+    const navList  = document.getElementById('nav-list');
 
+    // ====== TOAST ======
+    function showToast(message, title = 'Erro') {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-title').textContent = title;
+      document.getElementById('toast-message').textContent = message;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 7000);
+    }
+
+    function hideToast() {
+      document.getElementById('toast').style.display = 'none';
+    }
+
+    // ====== MENU LATERAL (MOBILE) ======
     menuToggle.onclick = () => {
       sidebar.classList.toggle('collapsed');
       container.classList.toggle('full');
     };
 
-    // ========== NAVEGAÇÃO ==========
+    // ====== NAVEGAÇÃO ENTRE SEÇÕES ======
+    function setActiveNav(section) {
+      document.querySelectorAll('aside ul li').forEach(li => {
+        if (li.dataset.section === section) {
+          li.classList.add('active');
+        } else {
+          li.classList.remove('active');
+        }
+      });
+    }
+
     async function showSection(section) {
       const sections = ['dashboard','block','blocked','contacts','rules'];
       sections.forEach(s => {
         const el = document.getElementById(`${s}-section`);
         if (el) el.classList.add('hidden');
-    });
-      
-      document.getElementById(section + '-section').classList.remove('hidden');
-      
+      });
+
+      const target = document.getElementById(section + '-section');
+      if (target) target.classList.remove('hidden');
+
+      setActiveNav(section);
+
       if (section === 'dashboard') { await fetchMode(); await updateDashboard(); }
       if (section === 'blocked')   { await updateBlockedFlows(); }
       if (section === 'contacts')  { await fetchContacts(); }
@@ -573,21 +1243,30 @@
       if (section === 'rules')     { await fetchRulePresets(); await listRules(); }
     }
 
-    // ========== BLOQUEIO DE TRÁFEGO ==========
+    // clique nos itens do menu
+    document.querySelectorAll('aside ul li').forEach(li => {
+      li.addEventListener('click', () => {
+        const section = li.dataset.section;
+        if (section) showSection(section);
+      });
+    });
+
+    // ====== BLOQUEIO DE TRÁFEGO ======
     async function fetchSwitches() {
       try {
         const response = await fetch('/api/switches');
         const data = await response.json();
         const select = document.getElementById('switchSelect');
         select.innerHTML = '';
-        data.switches.forEach(s => {
+        (data.switches || []).forEach(s => {
           const option = document.createElement('option');
           option.value = s;
-          option.text = `Switch ${s}`;
+          option.text  = `Switch ${s}`;
           select.appendChild(option);
         });
       } catch (e) {
         console.error('Erro ao buscar switches:', e);
+        showToast('Não foi possível carregar a lista de switches. Verifique o backend.', 'Falha ao carregar switches');
       }
     }
 
@@ -597,7 +1276,7 @@
       const ipDst = document.getElementById('dstInput').value;
 
       if (!ipSrc || !ipDst) {
-        alert('❌ Preencha os IPs de origem e destino');
+        showToast('Preencha IP de origem e destino para aplicar o bloqueio.', 'Campos obrigatórios');
         return;
       }
 
@@ -612,78 +1291,77 @@
           })
         });
         const result = await resp.json();
-        
+
         if (result.status === 'success') {
-          alert('✅ ' + result.message);
+          showToast(result.message || 'Bloqueio aplicado com sucesso.', 'Bloqueio aplicado');
           document.getElementById('srcInput').value = '';
           document.getElementById('dstInput').value = '';
         } else {
-          alert('❌ ' + result.message);
+          showToast(result.message || 'Não foi possível aplicar o bloqueio.', 'Falha no bloqueio');
         }
       } catch (e) {
-        alert('❌ Erro: ' + e);
+        showToast(String(e), 'Erro no bloqueio');
       }
     }
 
     async function unblockTraffic(blockId) {
-      if (!confirm('Deseja realmente desbloquear este tráfego?')) return;
-      
+      if (!confirm('Deseja realmente remover este bloqueio?')) return;
+
       try {
         const resp = await fetch(`/unblock/${blockId}`, { method: 'DELETE' });
         const result = await resp.json();
-        
+
         if (result.status === 'success') {
-          alert('✅ ' + result.message);
+          showToast(result.message || 'Bloqueio removido.', 'Bloqueio removido');
           await updateBlockedFlows();
         } else {
-          alert('❌ ' + result.message);
+          showToast(result.message || 'Não foi possível remover o bloqueio.', 'Falha ao remover bloqueio');
         }
       } catch (e) {
-        alert('❌ Erro: ' + e);
+        showToast(String(e), 'Erro ao remover bloqueio');
       }
     }
 
     async function updateBlockedFlows() {
       try {
-        console.log('🔍 Carregando bloqueios...');
         const resp = await fetch('/api/blocked');
         const data = await resp.json();
-        
-        console.log('📦 Dados:', data);
-        
-        document.getElementById('blocks-count').textContent = data.total;
-        
+
+        document.getElementById('blocks-count').textContent = data.total ?? 0;
+
         const list = document.getElementById('blocks-list');
         list.innerHTML = '';
-        
-        if (data.blocked.length === 0) {
+
+        if (!data.blocked || data.blocked.length === 0) {
           list.innerHTML = '<li style="text-align:center; color:#888;">Nenhum bloqueio ativo</li>';
           return;
         }
-        
+
         data.blocked.forEach(block => {
           const li = document.createElement('li');
           li.className = 'block-item';
           li.innerHTML = `
             <div class="info">
-              <strong>🚫 Switch ${block.dpid}</strong><br>
+              <strong>Switch ${block.dpid}</strong><br>
               ${block.ip_src} → ${block.ip_dst}<br>
-              <small style="color:#888;">${block.timestamp} | ${block.reason}</small>
+              <span class="alert-meta">${block.timestamp} | ${block.reason}</span>
             </div>
             <div class="actions">
-              <button onclick="unblockTraffic(${block.id})">🔓 Desbloquear</button>
+              <button onclick="unblockTraffic(${block.id})">
+                <i class="fa-solid fa-unlock"></i>
+                <span>Desbloquear</span>
+              </button>
             </div>
           `;
           list.appendChild(li);
         });
-        
-        console.log('✅ Bloqueios renderizados:', data.blocked.length);
       } catch (e) {
-        console.error('❌ Erro ao carregar bloqueios:', e);
+        console.error('Erro ao carregar bloqueios:', e);
+        showToast('Não foi possível carregar os bloqueios ativos.', 'Falha ao carregar bloqueios');
       }
     }
 
-    // ========== DASHBOARD ==========
+    // ====== DASHBOARD ======
     let trafficChart;
 
     async function updateDashboard() {
@@ -695,16 +1373,20 @@
           fetch('/api/alerts')
         ]);
 
-        const traffic = await trafficResp.json();
-        const stats = await statsResp.json();
-        const topo = await topoResp.json();
-        const alerts = await alertsResp.json();
+        if (!trafficResp.ok || !statsResp.ok || !topoResp.ok || !alertsResp.ok) {
+          showToast('Falha ao carregar dados do dashboard. O backend está em execução?', 'Erro no dashboard');
+        }
 
-        document.getElementById('switches').textContent = topo.switches;
-        document.getElementById('hosts').textContent = topo.hosts;
-        document.getElementById('suspiciousTraffic').textContent = stats.suspicious_traffic;
-        document.getElementById('legitTraffic').textContent = stats.legitimate_traffic_pct + '%';
-        document.getElementById('rules').textContent = stats.rules_active;
+        const traffic = await trafficResp.json();
+        const stats   = await statsResp.json();
+        const topo    = await topoResp.json();
+        const alerts  = await alertsResp.json();
+
+        document.getElementById('switches').textContent       = topo.switches ?? '-';
+        document.getElementById('hosts').textContent          = topo.hosts ?? '-';
+        document.getElementById('suspiciousTraffic').textContent = stats.suspicious_traffic ?? '-';
+        document.getElementById('legitTraffic').textContent   = (stats.legitimate_traffic_pct ?? 0) + '%';
+        document.getElementById('rules').textContent          = stats.rules_active ?? '-';
 
         // Gráfico
         if (!trafficChart) {
@@ -719,7 +1401,9 @@
                 y: { beginAtZero: true, ticks: { color: '#ccc' } },
                 x: { ticks: { color: '#ccc' } }
               },
-              plugins: { legend: { labels: { color: '#ccc' } } }
+              plugins: {
+                legend: { labels: { color: '#ccc' } }
+              }
             }
           });
         } else {
@@ -729,23 +1413,32 @@
 
         const alertsList = document.getElementById('alerts-list');
         alertsList.innerHTML = '';
-      
-        if (alerts.alerts.length === 0) {
+
+        if (!alerts.alerts || alerts.alerts.length === 0) {
           alertsList.innerHTML = '<li style="text-align:center; color:#888;">Nenhum alerta recente</li>';
         } else {
           alerts.alerts.forEach(a => {
             const li = document.createElement('li');
-            li.className = 'alert red';
-            li.innerHTML = `<strong>⚠️ Tráfego malicioso detectado</strong><br>${a.source} → ${a.destination}<br><small>${a.time}</small>`;
+            li.innerHTML = `
+              <div>
+                <div class="alert-tag">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span>Tráfego malicioso detectado</span>
+                </div>
+                <div>${a.source} → ${a.destination}</div>
+                <div class="alert-meta">${a.time}</div>
+              </div>
+            `;
             alertsList.appendChild(li);
           });
         }
       } catch (e) {
         console.error('Erro ao atualizar dashboard:', e);
+        showToast('Não foi possível atualizar o dashboard.', 'Erro no dashboard');
       }
     }
 
-    // ========== MODO DE MITIGAÇÃO ==========
+    // ====== MODO DE MITIGAÇÃO ======
     async function fetchMode() {
       try {
         const res = await fetch('/api/config/mode');
@@ -754,11 +1447,15 @@
         const el = document.getElementById('modeDisplay');
         el.textContent = mode.toUpperCase();
         el.className = mode === 'block' ? 'block' : 'alert';
+
+        document.getElementById('btn-mode-block').classList.toggle('active', mode === 'block');
+        document.getElementById('btn-mode-alert').classList.toggle('active', mode === 'alert');
       } catch (e) {
         console.error('Erro ao obter modo:', e);
+        showToast('Não foi possível obter o modo de mitigação.', 'Erro de configuração');
       }
-    }  
-      
+    }
+
     async function setMode(mode) {
       try {
         const res = await fetch('/api/config/mode', {
@@ -767,62 +1464,64 @@
           body: JSON.stringify({ mode })
         });
         const data = await res.json();
-        alert(data.message || 'Modo atualizado');
-        await fetchMode();
+
+        if (data.status === 'success') {
+          showToast(data.message || 'Modo atualizado com sucesso.', 'Modo de mitigação');
+          await fetchMode();
+        } else {
+          showToast(data.message || 'Não foi possível atualizar o modo.', 'Erro de configuração');
+        }
       } catch (e) {
-        alert('Erro ao mudar o modo: ' + e);
+        showToast(String(e), 'Erro de configuração');
       }
     }
 
-    // ========== CONTATOS ==========
-    let editingContactId = null;
+    // ====== CONTATOS ======
+    function clearContactForm() {
+      document.getElementById('contactId').value = '';
+      document.getElementById('nameInput').value = '';
+      document.getElementById('emailInput').value = '';
+      document.getElementById('enabledCheckbox').checked = true;
+    }
 
     async function saveContact() {
       const contactId = document.getElementById('contactId').value;
-      const name = document.getElementById('nameInput').value;
-      const email = document.getElementById('emailInput').value;
+      const name   = document.getElementById('nameInput').value;
+      const email  = document.getElementById('emailInput').value;
       const enabled = document.getElementById('enabledCheckbox').checked;
 
       if (!name || !email) {
-        alert('❌ Nome e E-mail são obrigatórios');
+        showToast('Nome e e-mail são obrigatórios.', 'Campos obrigatórios');
         return;
       }
 
       try {
         let url = '/api/contacts';
         let method = 'POST';
-        
+
         if (contactId) {
           url = `/api/contacts/${contactId}`;
           method = 'PUT';
         }
 
         const res = await fetch(url, {
-          method: method,
+          method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, enabled })
         });
-        
+
         const result = await res.json();
 
         if (result.status === 'success') {
-          alert(contactId ? '✅ Contato atualizado!' : '✅ Contato criado!');
+          showToast(contactId ? 'Contato atualizado.' : 'Contato criado.', 'Contatos');
           clearContactForm();
           await fetchContacts();
         } else {
-          alert('❌ Erro: ' + result.message);
+          showToast(result.message || 'Não foi possível salvar o contato.', 'Erro em contatos');
         }
       } catch (e) {
-        alert('❌ Erro: ' + e);
+        showToast(String(e), 'Erro em contatos');
       }
-    }
-
-    function clearContactForm() {
-      document.getElementById('contactId').value = '';
-      document.getElementById('nameInput').value = '';
-      document.getElementById('emailInput').value = '';
-      document.getElementById('enabledCheckbox').checked = true;
-      editingContactId = null;
     }
 
     function editContact(contact) {
@@ -830,12 +1529,9 @@
       document.getElementById('nameInput').value = contact.name;
       document.getElementById('emailInput').value = contact.email;
       document.getElementById('enabledCheckbox').checked = contact.enabled;
-      
+
       document.getElementById('contacts-section').scrollIntoView({ behavior: 'smooth' });
-      
-      setTimeout(() => {
-        document.getElementById('nameInput').focus();
-      }, 500);
+      setTimeout(() => { document.getElementById('nameInput').focus(); }, 500);
     }
 
     async function toggleContactStatus(contactId, currentStatus) {
@@ -843,44 +1539,41 @@
         const res = await fetch(`/api/contacts/${contactId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             name: null,
             email: null,
             enabled: !currentStatus
           })
         });
-        
+
         const result = await res.json();
 
         if (result.status === 'success') {
           await fetchContacts();
         } else {
-          alert('❌ Erro: ' + result.message);
+          showToast(result.message || 'Não foi possível alterar o contato.', 'Erro em contatos');
         }
       } catch (e) {
-        alert('❌ Erro: ' + e);
+        showToast(String(e), 'Erro em contatos');
       }
     }
 
     async function deleteContact(contactId) {
-      if (!confirm('⚠️ Deseja realmente excluir este contato?')) return;
+      if (!confirm('Deseja realmente excluir este contato?')) return;
 
       try {
-        const res = await fetch(`/api/contacts/${contactId}`, { 
-          method: 'DELETE' 
-        });
-        
+        const res = await fetch(`/api/contacts/${contactId}`, { method: 'DELETE' });
         const result = await res.json();
 
         if (result.status === 'success') {
-          alert('✅ Contato removido!');
+          showToast('Contato removido.', 'Contatos');
           clearContactForm();
           await fetchContacts();
         } else {
-          alert('❌ Erro: ' + result.message);
+          showToast(result.message || 'Não foi possível remover o contato.', 'Erro em contatos');
         }
       } catch (e) {
-        alert('❌ Erro: ' + e);
+        showToast(String(e), 'Erro em contatos');
       }
     }
 
@@ -888,77 +1581,94 @@
       try {
         const res = await fetch('/api/contacts');
         const data = await res.json();
-        
+
         const list = document.getElementById('contacts-list');
         list.innerHTML = '';
-        
-        if (data.contacts.length === 0) {
-          list.innerHTML = '<li style="text-align:center; color:#888; padding: 20px;">Nenhum contato cadastrado</li>';
+
+        if (!data.contacts || data.contacts.length === 0) {
+          list.innerHTML = '<li style="text-align:center; color:#888; padding: 12px;">Nenhum contato cadastrado</li>';
           return;
         }
-        
+
         data.contacts.forEach(contact => {
           const li = document.createElement('li');
           li.className = `contact-item ${contact.enabled ? '' : 'disabled'}`;
-          
+
           li.innerHTML = `
             <div class="contact-info">
               <strong>
                 ${contact.name}
                 <span class="contact-status ${contact.enabled ? 'active' : 'inactive'}">
-                  ${contact.enabled ? '✓ ATIVO' : '✗ INATIVO'}
+                  <span>${contact.enabled ? 'ativo' : 'inativo'}</span>
                 </span>
               </strong>
-              <small>📧 ${contact.email}</small>
+              <small>${contact.email}</small>
             </div>
             <div class="contact-actions">
               <button class="btn-edit" onclick='editContact(${JSON.stringify(contact)})' title="Editar">
-                ✏️ Editar
+                <i class="fa-solid fa-pen"></i>
               </button>
               <button class="btn-toggle" onclick="toggleContactStatus(${contact.id}, ${contact.enabled})" title="Ativar/Desativar">
-                ${contact.enabled ? '🔕 Desativar' : '🔔 Ativar'}
+                <i class="fa-solid ${contact.enabled ? 'fa-bell-slash' : 'fa-bell'}"></i>
               </button>
               <button class="btn-delete" onclick="deleteContact(${contact.id})" title="Remover">
-                🗑️ Remover
+                <i class="fa-solid fa-trash"></i>
               </button>
             </div>
           `;
-          
+
           list.appendChild(li);
         });
       } catch (e) {
         console.error('Erro ao carregar contatos:', e);
+        showToast('Não foi possível carregar os contatos.', 'Erro em contatos');
       }
     }
 
+    // ====== REGRAS (PRÉ-FILTRO) ======
     async function fetchRulePresets() {
       try {
         const res = await fetch('/api/rules/presets');
         const data = await res.json();
         const ul = document.getElementById('presetList');
         ul.innerHTML = '';
+
+        if (!data.presets || data.presets.length === 0) {
+          ul.innerHTML = '<li style="color:#888; font-size:13px;">Nenhum preset cadastrado.</li>';
+          return;
+        }
+
         data.presets.forEach(p => {
           const li = document.createElement('li');
           li.style.cursor = 'pointer';
           li.className = 'alert';
-          li.innerHTML = `<strong>${p.name}</strong><br><small>${p.description||''}</small>`;
+          li.style.marginBottom = '6px';
+          li.innerHTML = `
+            <div>
+              <strong>${p.name}</strong><br>
+              <span class="alert-meta">${p.description || ''}</span>
+            </div>
+          `;
           li.onclick = () => {
-            document.getElementById('ruleName').value = p.name || '';
-            document.getElementById('ruleAction').value = p.action || 'block';
-            document.getElementById('ruleIpSrc').value = p.ip_src || '';
-            document.getElementById('ruleIpDst').value = p.ip_dst || '';
-            document.getElementById('ruleProto').value = p.protocol || '';
-            document.getElementById('rulePortSrc').value = p.port_src ?? '';
-            document.getElementById('rulePortDst').value = p.port_dst ?? '';
+            document.getElementById('ruleName').value     = p.name || '';
+            document.getElementById('ruleAction').value   = p.action || 'block';
+            document.getElementById('ruleIpSrc').value    = p.ip_src || '';
+            document.getElementById('ruleIpDst').value    = p.ip_dst || '';
+            document.getElementById('ruleProto').value    = p.protocol || '';
+            document.getElementById('rulePortSrc').value  = p.port_src ?? '';
+            document.getElementById('rulePortDst').value  = p.port_dst ?? '';
             document.getElementById('ruleMaxBytes').value = p.max_bytes ?? '';
-            document.getElementById('ruleMaxPkts').value = p.max_packets ?? '';
-            document.getElementById('ruleMaxPps').value = p.max_pps ?? '';
-            document.getElementById('ruleMaxBps').value = p.max_bps ?? '';
-            alert('Preset carregado. Ajuste se quiser e clique em "Criar regra".');
+            document.getElementById('ruleMaxPkts').value  = p.max_packets ?? '';
+            document.getElementById('ruleMaxPps').value   = p.max_pps ?? '';
+            document.getElementById('ruleMaxBps').value   = p.max_bps ?? '';
+            showToast('Preset carregado. Ajuste se desejar e clique em "Criar regra".', 'Preset carregado');
           };
           ul.appendChild(li);
         });
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+        showToast('Não foi possível carregar os presets de regra.', 'Erro em regras');
+      }
     }
 
     async function createRule() {
@@ -978,18 +1688,27 @@
         enabled: true
       };
 
-      if (!body.name) { alert('Dê um nome à regra.'); return; }
+      if (!body.name) {
+        showToast('Informe um nome para a regra.', 'Campos obrigatórios');
+        return;
+      }
 
       try {
-        const res = await fetch('/api/rules', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const res = await fetch('/api/rules', {
+          method: 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify(body)
+        });
         const data = await res.json();
         if (data.status === 'success') {
-          alert('✅ Regra criada');
+          showToast('Regra criada com sucesso.', 'Regras');
           listRules();
         } else {
-          alert('❌ ' + (data.message || 'Erro ao criar regra'));
+          showToast(data.message || 'Não foi possível criar a regra.', 'Erro em regras');
         }
-      } catch (e) { alert('❌ ' + e); }
+      } catch (e) {
+        showToast(String(e), 'Erro em regras');
+      }
     }
 
     async function listRules() {
@@ -998,50 +1717,69 @@
         const data = await res.json();
         const ul = document.getElementById('ruleList');
         ul.innerHTML = '';
-        if (!data.rules.length) {
-          ul.innerHTML = '<li style="text-align:center;color:#888;">Nenhuma regra</li>';
+
+        if (!data.rules || data.rules.length === 0) {
+          ul.innerHTML = '<li style="text-align:center;color:#888;">Nenhuma regra configurada.</li>';
           return;
         }
+
         data.rules.forEach(r => {
           const li = document.createElement('li');
           li.className = 'block-item';
           li.innerHTML = `
             <div class="info">
               <strong>${r.name}</strong> — ${r.action.toUpperCase()} ${r.enabled ? '' : '(desativada)'}<br>
-              <small>${r.description || ''}</small><br>
-              <small>Filtros: 
-                ${r.ip_src || ''} ${r.ip_dst || ''} ${r.protocol || ''} 
+              <span class="alert-meta">${r.description || ''}</span><br>
+              <span class="alert-meta">
+                Filtros:
+                ${r.ip_src || ''} ${r.ip_dst || ''} ${r.protocol || ''}
                 ${r.port_src ? 'sport='+r.port_src : ''} ${r.port_dst ? 'dport='+r.port_dst : ''}
-                ${r.max_bytes ? 'bytes>'+r.max_bytes : ''} ${r.max_packets ? 'pkts>'+r.max_packets : ''} 
+                ${r.max_bytes ? 'bytes>'+r.max_bytes : ''} ${r.max_packets ? 'pkts>'+r.max_packets : ''}
                 ${r.max_pps ? 'pps>'+r.max_pps : ''} ${r.max_bps ? 'bps>'+r.max_bps : ''}
-              </small>
+              </span>
             </div>
             <div class="actions">
-              <button onclick="toggleRule(${r.id}, ${r.enabled ? 'false':'true'})">${r.enabled ? 'Desativar' : 'Ativar'}</button>
-              <button onclick="deleteRule(${r.id})">🗑️</button>
+              <button onclick="toggleRule(${r.id}, ${r.enabled ? 'false':'true'})">
+                <i class="fa-solid ${r.enabled ? 'fa-pause' : 'fa-play'}"></i>
+              </button>
+              <button onclick="deleteRule(${r.id})">
+                <i class="fa-solid fa-trash"></i>
+              </button>
             </div>`;
           ul.appendChild(li);
         });
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+        showToast('Não foi possível carregar as regras.', 'Erro em regras');
+      }
     }
 
     async function toggleRule(id, enabled) {
       try {
-        const res = await fetch(`/api/rules/${id}/toggle`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({enabled}) });
+        const res = await fetch(`/api/rules/${id}/toggle`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ enabled })
+        });
         await res.json();
         listRules();
-      } catch (e) { alert('❌ ' + e); }
+      } catch (e) {
+        showToast(String(e), 'Erro em regras');
+      }
     }
 
     async function deleteRule(id) {
-      if (!confirm('Remover regra?')) return;
+      if (!confirm('Remover esta regra?')) return;
       try {
         const res = await fetch(`/api/rules/${id}`, { method:'DELETE' });
         await res.json();
         listRules();
-      } catch (e) { alert('❌ ' + e); }
+      } catch (e) {
+        showToast(String(e), 'Erro em regras');
+      }
     }
 
+    // ====== INIT ======
     async function init() {
       await fetchSwitches();
       await fetchMode();
