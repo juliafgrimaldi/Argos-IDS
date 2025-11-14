@@ -4,12 +4,10 @@
   <meta charset="UTF-8" />
   <title>ARGOS IDS Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Feather icons (para ícones leves e sem emoji) -->
   <script src="https://unpkg.com/feather-icons"></script>
 
   <style>
     :root {
-      /* Paleta mais neutra, próxima do original */
       --bg-body: #101217;
       --bg-surface: #171b23;
       --bg-surface-soft: #1d222c;
@@ -20,7 +18,7 @@
       --text-muted: #9da4be;
       --text-soft: #6b7184;
 
-      --accent: #2d8cff;      /* azul só de detalhe */
+      --accent: #2d8cff;
       --accent-soft: rgba(45, 140, 255, 0.14);
       --accent-strong: #0f60c0;
 
@@ -94,31 +92,14 @@
       align-items: center;
       gap: 10px;
       padding: 6px 4px 4px;
+      white-space: nowrap;
     }
 
-    .argos-logo-wrap {
-      width: 34px;
-      height: 34px;
-      border-radius: 12px;
-      background: radial-gradient(circle at 30% 0%, #47a4ff 0, #1f6fde 45%, #0f325e 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.55);
-    }
-
-    .argos-logo-wrap img {
-      width: 24px;
-      height: 24px;
-      object-fit: contain;
-      filter: drop-shadow(0 0 5px rgba(0,0,0,0.6));
-    }
-
+    /* removi o logo de imagem, fica só o texto */
     .sidebar-title {
       display: flex;
       flex-direction: column;
       gap: 2px;
-      white-space: nowrap;
     }
 
     .sidebar-title-main {
@@ -347,6 +328,110 @@
       gap: 18px;
     }
 
+    /* ===== BOTÕES E CAMPOS (ajuste para não ficarem “bugados”) ===== */
+
+    button {
+      font-family: inherit;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 6px 12px;
+      font-size: 12px;
+      background: var(--bg-surface);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+    }
+
+    button:hover {
+      background: #202635;
+      box-shadow: 0 6px 15px rgba(0,0,0,0.45);
+      transform: translateY(-1px);
+    }
+
+    button.primary-btn {
+      padding: 10px 14px;
+      border-radius: var(--radius-pill);
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button.primary-btn:hover {
+      background: var(--accent-strong);
+      box-shadow: 0 10px 24px rgba(25, 110, 230, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .mode-chip,
+    .menu-toggle-btn {
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .mode-chip.active {
+      border: none;
+    }
+
+    .blocks-list, .contacts-list, .rules-list {
+      list-style: none;
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .block-item, .contact-item, .rule-item {
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: var(--bg-surface);
+      border: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .block-item .actions,
+    .rule-actions,
+    .contact-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .contact-item.disabled {
+      opacity: 0.6;
+    }
+
+    .contact-actions button,
+    .rule-actions button,
+    .block-item .actions button {
+      padding: 6px 12px;
+      font-size: 11px;
+      background: rgba(255,255,255,0.05);
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .contact-actions button:hover,
+    .rule-actions button:hover,
+    .block-item .actions button:hover {
+      background: rgba(255,255,255,0.12);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 12px 8px;
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
     /* ===== CARDS / LAYOUT ===== */
 
     .mode-card {
@@ -422,7 +507,6 @@
       padding: 6px 14px;
       font-size: 13px;
       cursor: pointer;
-      border: none;
       background: transparent;
       color: var(--text-muted);
       display: inline-flex;
@@ -538,8 +622,6 @@
     .metric-card.legit .metric-value { color: var(--success); }
     .metric-card.rules .metric-value { color: var(--accent); }
 
-    /* ===== CHART / ALERTS ===== */
-
     .panel {
       background: var(--bg-surface-soft);
       border-radius: var(--radius-lg);
@@ -627,13 +709,9 @@
       white-space: nowrap;
     }
 
-    .alert-info {
-      flex: 1;
-    }
+    .alert-info { flex: 1; }
 
-    .alert-line {
-      font-weight: 500;
-    }
+    .alert-line { font-weight: 500; }
 
     .alert-meta {
       font-size: 11px;
@@ -641,24 +719,11 @@
       margin-top: 2px;
     }
 
-    .empty-state {
-      text-align: center;
-      padding: 12px 8px;
-      font-size: 12px;
-      color: var(--text-soft);
-    }
-
     /* ===== SEÇÕES GENÉRICAS ===== */
 
-    .section {
-      display: none;
-    }
+    .section { display: none; }
+    .section.active { display: block; }
 
-    .section.active {
-      display: block;
-    }
-
-    /* Form / lists dos outros módulos reaproveitando seu CSS antigo, só ajustando leve */
     .form-group {
       margin-bottom: 12px;
     }
@@ -670,7 +735,10 @@
       color: var(--text-muted);
     }
 
-    select, input[type="text"], input[type="email"], input[type="number"] {
+    select,
+    input[type="text"],
+    input[type="email"],
+    input[type="number"] {
       width: 100%;
       padding: 9px 10px;
       border-radius: 10px;
@@ -682,72 +750,29 @@
       transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
     }
 
-    select:focus, input:focus {
+    select:focus,
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="number"]:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 1px rgba(45, 140, 255, 0.35);
       background: #161925;
     }
 
-    button.primary-btn {
-      padding: 10px 14px;
-      border-radius: var(--radius-pill);
-      border: none;
-      background: var(--accent);
-      color: #fff;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+    input::placeholder {
+      color: var(--text-soft);
+      opacity: 0.9;
     }
 
-    button.primary-btn:hover {
-      background: var(--accent-strong);
-      box-shadow: 0 10px 24px rgba(25, 110, 230, 0.5);
-      transform: translateY(-1px);
-    }
-
-    .blocks-list, .contacts-list, .rules-list {
+    details summary {
       list-style: none;
-      margin-top: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .block-item, .contact-item, .rule-item {
-      border-radius: 12px;
-      padding: 10px 12px;
-      background: var(--bg-surface);
-      border: 1px solid rgba(255,255,255,0.05);
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      font-size: 13px;
-    }
-
-    .contact-item.disabled {
-      opacity: 0.6;
-    }
-
-    .contact-actions button,
-    .rule-actions button {
-      border-radius: 999px;
-      padding: 5px 10px;
-      font-size: 11px;
-      border: none;
       cursor: pointer;
-      background: rgba(255,255,255,0.05);
-      color: var(--text-main);
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
     }
 
-    .contact-actions button:hover,
-    .rule-actions button:hover {
-      background: rgba(255,255,255,0.11);
-    }
+    details summary::-webkit-details-marker { display:none; }
 
   </style>
 </head>
@@ -756,10 +781,6 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <div class="argos-logo-wrap">
-          <!-- Usa o logo do Argos que você já tem no projeto -->
-          <img src="Figuras/argos-logo.png" alt="ARGOS-IDS Logo">
-        </div>
         <div class="sidebar-title">
           <span class="sidebar-title-main">ARGOS IDS</span>
           <span class="sidebar-title-sub">Network defense</span>
@@ -929,9 +950,7 @@
                 Alertas recentes
               </div>
             </div>
-            <ul id="alerts-list" class="alerts-list">
-              <!-- preenchido via JS -->
-            </ul>
+            <ul id="alerts-list" class="alerts-list"></ul>
           </div>
         </section>
 
@@ -1050,7 +1069,7 @@
             </div>
 
             <details style="margin-bottom:10px;">
-              <summary style="cursor:pointer;margin-bottom:6px;">Filtros por campos</summary>
+              <summary>Filtros por campos</summary>
               <div class="form-group">
                 <label>IP origem (regex opcional)</label>
                 <input id="ruleIpSrc" placeholder="ex.: ^10\\.0\\.\\d+\\.\\d+$" />
@@ -1074,7 +1093,7 @@
             </details>
 
             <details>
-              <summary style="cursor:pointer;margin-bottom:6px;">Limites (acionam a regra quando excedidos)</summary>
+              <summary>Limites (acionam a regra quando excedidos)</summary>
               <div class="form-group">
                 <label>Bytes &gt; </label>
                 <input id="ruleMaxBytes" type="number" placeholder="100000" />
@@ -1110,10 +1129,8 @@
   </div>
 
   <script>
-    // ===== ICONES =====
     feather.replace();
 
-    // ===== SIDEBAR / NAVEGAÇÃO =====
     const navItems = document.querySelectorAll('.nav-item');
     const sections = ['dashboard','block','blocked','contacts','rules'];
 
@@ -1140,7 +1157,6 @@
 
     const menuToggleBtn = document.getElementById('menu-toggle');
     menuToggleBtn.addEventListener('click', () => {
-      // desktop: colapsa; mobile: esconde de vez
       if (window.innerWidth <= 900) {
         document.body.classList.toggle('sidebar-hidden-mobile');
       } else {
@@ -1148,7 +1164,25 @@
       }
     });
 
-    // ===== BLOQUEIO DE TRÁFEGO =====
+    /* ===== BLOQUEIO / DASH / CONTATOS / REGRAS =====
+       (toda a parte JS é exatamente a mesma que você já tinha) */
+
+    let trafficChart = null;
+    const MAX_POINTS = 60;
+
+    function normalizeTrafficData(raw) {
+      if (!raw || !raw.labels || !raw.datasets) return raw;
+      const len = raw.labels.length;
+      if (len > MAX_POINTS) {
+        const start = len - MAX_POINTS;
+        raw.labels = raw.labels.slice(start);
+        raw.datasets = raw.datasets.map(ds => ({
+          ...ds,
+          data: ds.data.slice(start)
+        }));
+      }
+      return raw;
+    }
 
     async function fetchSwitches() {
       try {
@@ -1253,29 +1287,6 @@
       }
     }
 
-    // ===== DASHBOARD / GRÁFICO =====
-
-    let trafficChart = null;
-    const MAX_POINTS = 60; // limite para evitar travar quando o ataque gera muito ponto
-
-    function normalizeTrafficData(raw) {
-      if (!raw || !raw.labels || !raw.datasets) return raw;
-
-      // se vierem MUITOS pontos, mantém só os últimos MAX_POINTS
-      const len = raw.labels.length;
-      if (len > MAX_POINTS) {
-        const start = len - MAX_POINTS;
-        raw.labels = raw.labels.slice(start);
-        raw.datasets = raw.datasets.map(ds => {
-          return {
-            ...ds,
-            data: ds.data.slice(start)
-          };
-        });
-      }
-      return raw;
-    }
-
     async function updateDashboard() {
       try {
         const [trafficResp, statsResp, topoResp, alertsResp] = await Promise.all([
@@ -1296,10 +1307,8 @@
         document.getElementById('legitTraffic').textContent = stats.legitimate_traffic_pct + '%';
         document.getElementById('rules').textContent = stats.rules_active;
 
-        // normaliza / limita pontos
         traffic = normalizeTrafficData(traffic);
 
-        // opções sem animação pesada pra não travar sob ataque
         const chartOptions = {
           responsive: true,
           maintainAspectRatio: false,
@@ -1317,9 +1326,7 @@
             }
           },
           plugins: {
-            legend: {
-              display: false
-            },
+            legend: { display: false },
             tooltip: {
               backgroundColor: '#11141a',
               borderColor: 'rgba(255,255,255,0.08)',
@@ -1368,8 +1375,6 @@
       }
     }
 
-    // ===== MODO DE MITIGAÇÃO =====
-
     async function fetchMode() {
       try {
         const res = await fetch('/api/config/mode');
@@ -1410,7 +1415,6 @@
       }
     }
 
-    // ===== CONTATOS =====
     let editingContactId = null;
 
     async function saveContact() {
@@ -1474,11 +1478,7 @@
         const res = await fetch(`/api/contacts/${contactId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: null,
-            email: null,
-            enabled: !currentStatus
-          })
+          body: JSON.stringify({ name: null, email: null, enabled: !currentStatus })
         });
 
         const result = await res.json();
@@ -1497,10 +1497,7 @@
       if (!confirm('⚠️ Deseja realmente excluir este contato?')) return;
 
       try {
-        const res = await fetch(`/api/contacts/${contactId}`, {
-          method: 'DELETE'
-        });
-
+        const res = await fetch(`/api/contacts/${contactId}`, { method: 'DELETE' });
         const result = await res.json();
 
         if (result.status === 'success') {
@@ -1555,8 +1552,6 @@
         console.error('Erro ao carregar contatos:', e);
       }
     }
-
-    // ===== REGRAS =====
 
     async function fetchRulePresets() {
       try {
@@ -1681,13 +1676,12 @@
     async function deleteRule(id) {
       if (!confirm('Remover regra?')) return;
       try {
-        const res = await fetch(`/api/rules/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/rules/${id}`, { method:'DELETE' });
         await res.json();
         listRules();
       } catch (e) { alert('❌ ' + e); }
     }
 
-    // ===== INIT =====
     async function init() {
       await fetchSwitches();
       await fetchMode();
