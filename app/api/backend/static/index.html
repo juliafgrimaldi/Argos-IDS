@@ -1,579 +1,1155 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Argos IDS Dashboard</title>
+  <title>ARGOS IDS Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Feather icons (para ícones leves e sem emoji) -->
+  <script src="https://unpkg.com/feather-icons"></script>
+
   <style>
-    * { box-sizing: border-box; }
+    :root {
+      /* Paleta mais neutra, próxima do original */
+      --bg-body: #101217;
+      --bg-surface: #171b23;
+      --bg-surface-soft: #1d222c;
+      --bg-sidebar: #11141a;
+      --border-subtle: #262b36;
+
+      --text-main: #f5f7ff;
+      --text-muted: #9da4be;
+      --text-soft: #6b7184;
+
+      --accent: #2d8cff;      /* azul só de detalhe */
+      --accent-soft: rgba(45, 140, 255, 0.14);
+      --accent-strong: #0f60c0;
+
+      --danger: #ff4b5c;
+      --danger-soft: rgba(255, 75, 92, 0.16);
+      --success: #40d1a7;
+      --success-soft: rgba(64, 209, 167, 0.16);
+      --warning: #ffb648;
+      --warning-soft: rgba(255, 182, 72, 0.16);
+
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-pill: 999px;
+
+      --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.6);
+      --shadow-subtle: 0 1px 0 rgba(255, 255, 255, 0.02);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      background-color: #121212;
-      color: #ffffff;
-      font-family: 'Segoe UI', sans-serif;
-      margin: 0;
-      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #1b2333 0, #101217 45%, #050609 100%);
+      color: var(--text-main);
       height: 100vh;
       overflow: hidden;
       display: flex;
-      flex-direction: column;
     }
 
-    header {
+    /* ===== SHELL GERAL ===== */
+
+    .app-shell {
+      display: flex;
+      width: 100%;
+    }
+
+    /* ===== SIDEBAR ===== */
+
+    .sidebar {
+      width: 250px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      padding: 16px 18px;
+      gap: 16px;
+      box-shadow: var(--shadow-subtle);
+      transition: width 0.25s ease, transform 0.25s ease;
+      z-index: 50;
+    }
+
+    body.sidebar-collapsed .sidebar {
+      width: 72px;
+    }
+
+    @media (max-width: 900px) {
+      .sidebar {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        transform: translateX(0);
+      }
+      body.sidebar-hidden-mobile .sidebar {
+        transform: translateX(-100%);
+      }
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 4px 4px;
+    }
+
+    .argos-logo-wrap {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      background: radial-gradient(circle at 30% 0%, #47a4ff 0, #1f6fde 45%, #0f325e 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      background-color: #1f1f1f;
-      padding: 10px 20px;
-      height: 50px;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 1100;
-      border-bottom: 1px solid #333;
-      font-size: 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.55);
+    }
+
+    .argos-logo-wrap img {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 5px rgba(0,0,0,0.6));
+    }
+
+    .sidebar-title {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      white-space: nowrap;
+    }
+
+    .sidebar-title-main {
+      font-size: 15px;
       font-weight: 600;
-    }
-
-    #menu-toggle {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      background-color: #333;
-      color: #fff;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 18px;
-      z-index: 1200;
-    }
-
-    aside {
-      position: fixed;
-      top: 50px;
-      left: 0;
-      width: 220px;
-      height: calc(100vh - 50px);
-      background-color: #1f1f1f;
-      padding: 20px;
-      border-right: 1px solid #333;
-      overflow-y: auto;
-      transition: transform 0.3s ease;
-      z-index: 1050;
-    }
-
-    aside.collapsed { transform: translateX(-100%); }
-
-    aside h2 {
-      font-size: 18px;
-      margin-bottom: 10px;
-      color: #ccc;
-    }
-
-    aside ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    aside ul li {
-      margin: 10px 0;
-      cursor: pointer;
-      color: #ccc;
-      padding: 6px 4px;
-      border-radius: 4px;
-      transition: background-color 0.2s;
-    }
-
-    aside ul li:hover {
-      color: #fff;
-      background-color: #333;
-    }
-
-    .container {
-      margin-top: 50px;
-      margin-left: 220px;
-      padding: 20px;
-      height: calc(100vh - 50px);
-      overflow-y: auto;
-      transition: margin-left 0.3s ease;
-    }
-
-    .container.full { margin-left: 0; }
-
-    .overview {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 15px;
-      margin-bottom: 20px;
-    }
-
-    .overview .card {
-      background: #1e1e1e;
-      border-radius: 8px;
-      padding: 20px;
-      text-align: center;
-      box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
-    }
-
-    .overview .card h3 {
-      font-size: 14px;
-      color: #bbb;
-      margin: 0;
-      font-weight: 500;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
     }
 
-    .overview .card p {
-      font-size: 28px;
-      margin: 10px 0;
-      font-weight: 600;
+    .sidebar-title-sub {
+      font-size: 11px;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
     }
 
-    .overview .card .green { color: #4caf50; }
-    .overview .card .red { color: #e53935; }
-    .overview .card .orange { color: #ff9800; }
-
-    .alerts, .blocks-list {
-      background: #1e1e1e;
-      padding: 15px;
-      border-radius: 8px;
-      margin-top: 20px;
-      box-shadow: 0 0 5px rgba(255,255,255,0.1);
+    body.sidebar-collapsed .sidebar-title {
+      display: none;
     }
 
-    .alerts h3, .blocks-list h3 {
-      margin: 0 0 15px 0;
-      font-size: 16px;
+    .engine-status {
+      margin-left: auto;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      background: rgba(64, 209, 167, 0.1);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--success);
     }
 
-    .alerts ul, .blocks-list ul {
+    .engine-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px rgba(64, 209, 167, 0.9);
+    }
+
+    body.sidebar-collapsed .engine-status {
+      display: none;
+    }
+
+    .sidebar-section-label {
+      margin-top: 10px;
+      margin-bottom: 4px;
+      font-size: 11px;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      padding: 0 6px;
+    }
+
+    body.sidebar-collapsed .sidebar-section-label span {
+      display: none;
+    }
+
+    .nav-list {
       list-style: none;
-      margin: 0;
-      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
-    .alerts li, .blocks-list li {
-      padding: 10px;
-      margin-bottom: 8px;
-      border-radius: 5px;
-      background: #2a2a2a;
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      color: var(--text-muted);
       font-size: 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .alerts .alert.red { border-left: 4px solid #e53935; }
-
-    .block-item {
-      border-left: 4px solid #ff9800;
-    }
-
-    .block-item .info { flex: 1; }
-
-    .block-item .actions button {
-      background: #e53935;
-      color: #fff;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 4px;
       cursor: pointer;
-      font-size: 12px;
+      transition: background 0.18s ease, color 0.18s ease, transform 0.1s ease;
     }
 
-    .block-item .actions button:hover {
-      background: #c62828;
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-main);
+      transform: translateX(1px);
     }
 
-    #chart-container {
-      background-color: #1e1e1e;
-      padding: 20px;
-      border-radius: 10px;
-      height: 400px;
-      margin-top: 20px;
+    .nav-item.active {
+      background: var(--accent-soft);
+      color: var(--accent);
     }
 
-    .hidden { display: none; }
-
-    select, input {
-      background-color: #2e2e2e;
-      color: #fff;
-      padding: 10px;
-      margin: 10px 0 20px;
-      border-radius: 5px;
-      border: none;
-      width: 100%;
-      font-size: 16px;
-    }
-
-    input[readonly] {
-      background-color: #444;
-      cursor: not-allowed;
-    }
-
-    input[type="checkbox"] {
-      width: auto;
-      margin-right: 10px;
-    }
-
-    button {
-      padding: 12px;
-      background-color: #444;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 16px;
-      width: 100%;
-      transition: background-color 0.3s;
-    }
-
-    button:hover { background-color: #555; }
-
-    label { font-size: 14px; }
-
-    .form-group { margin-bottom: 15px; }
-
-    .mode-box {
-      background: #1e1e1e;
-      padding: 15px 20px;
-      border-radius: 8px;
-      margin-bottom: 20px;
+    .nav-item-icon {
+      width: 20px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+      justify-content: center;
     }
 
-    .mode-status { font-size: 16px; }
-
-    .mode-status span {
-      font-weight: bold;
-      padding: 5px 10px;
-      border-radius: 6px;
+    .nav-item-icon svg {
+      width: 18px;
+      height: 18px;
     }
 
-    .mode-status .block {
-      background: #4caf50;
-      color: #fff;
+    .nav-item span.nav-label {
+      transition: opacity 0.2s ease;
     }
 
-    .mode-status .alert {
-      background: #e53935;
-      color: #fff;
+    body.sidebar-collapsed .nav-item span.nav-label {
+      opacity: 0;
+      pointer-events: none;
     }
 
-    .mode-buttons {
+    .sidebar-footer {
+      margin-top: auto;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    body.sidebar-collapsed .sidebar-footer {
+      display: none;
+    }
+
+    /* ===== MAIN AREA ===== */
+
+    .main-layout {
+      flex: 1;
       display: flex;
+      flex-direction: column;
+      max-height: 100vh;
+    }
+
+    .topbar {
+      height: 52px;
+      display: flex;
+      align-items: center;
+      padding: 0 20px 0 12px;
+      gap: 14px;
+      border-bottom: 1px solid var(--border-subtle);
+      background: linear-gradient(90deg, rgba(9,11,18,0.9), rgba(13,17,28,0.9));
+      backdrop-filter: blur(12px);
+      box-shadow: var(--shadow-subtle);
+      position: relative;
+      z-index: 40;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
       gap: 10px;
     }
 
-    .mode-buttons button {
-      background-color: #333;
-      color: #fff;
-      border: none;
-      padding: 8px 14px;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: background-color 0.2s;
-      width: auto;
-    }
-
-    .mode-buttons button:hover {
-      background-color: #555;
-    }
-
-    /* Estilos de contatos */
-    .contact-item {
-      background: #2a2a2a;
-      padding: 15px;
-      margin-bottom: 10px;
-      border-radius: 8px;
-      border-left: 4px solid #4caf50;
+    .menu-toggle-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: rgba(9, 11, 18, 0.9);
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.1s ease, border-color 0.15s ease;
     }
 
-    .contact-item.disabled {
-      border-left-color: #888;
-      opacity: 0.7;
+    .menu-toggle-btn:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.12);
+      transform: translateY(-1px);
     }
 
-    .contact-info { flex: 1; }
-
-    .contact-info strong {
-      display: block;
-      font-size: 16px;
-      margin-bottom: 5px;
+    .menu-toggle-btn svg {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2.4;
     }
 
-    .contact-info small {
-      color: #aaa;
-      font-size: 13px;
-    }
-
-    .contact-status {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      margin-left: 10px;
-      font-weight: bold;
-    }
-
-    .contact-status.active {
-      background: #4caf50;
-      color: #fff;
-    }
-
-    .contact-status.inactive {
-      background: #888;
-      color: #fff;
-    }
-
-    .contact-actions {
+    .topbar-title {
       display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .topbar-title-main {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .topbar-title-sub {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .topbar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-soft {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      border-radius: var(--radius-pill);
+      padding: 4px 10px;
+      background: rgba(255,255,255,0.02);
+      color: var(--text-soft);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-soft svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    .main-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 22px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* ===== CARDS / LAYOUT ===== */
+
+    .mode-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 18px;
+      border-radius: var(--radius-lg);
+      background: radial-gradient(circle at top left, #1c2233 0, #141824 35%, #101217 100%);
+      border: 1px solid rgba(255,255,255,0.04);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .mode-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .mode-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-soft);
+    }
+
+    .mode-current {
+      font-size: 13px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
       gap: 8px;
     }
 
-    .contact-actions button {
-      padding: 8px 12px;
+    .mode-badge {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: var(--radius-pill);
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mode-badge.block {
+      background: var(--success-soft);
+      color: var(--success);
+    }
+
+    .mode-badge.alert {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .mode-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .mode-switch-group {
+      display: inline-flex;
+      border-radius: var(--radius-pill);
+      background: rgba(0,0,0,0.35);
+      padding: 3px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .mode-chip {
+      border-radius: var(--radius-pill);
+      padding: 6px 14px;
       font-size: 13px;
-      border-radius: 5px;
       cursor: pointer;
       border: none;
-      transition: all 0.2s;
-      width: auto;
+      background: transparent;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.18s ease, color 0.18s ease, transform 0.08s ease;
     }
 
-    .btn-edit {
-      background: #2196f3;
-      color: white;
+    .mode-chip svg {
+      width: 15px;
+      height: 15px;
     }
 
-    .btn-edit:hover { background: #1976d2; }
-
-    .btn-toggle {
-      background: #ff9800;
-      color: white;
+    .mode-chip.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 10px 22px rgba(25, 120, 255, 0.45);
+      transform: translateY(-0.5px);
     }
 
-    .btn-toggle:hover { background: #f57c00; }
-
-    .btn-delete {
-      background: #e53935;
-      color: white;
+    .engine-indicator {
+      border-radius: var(--radius-pill);
+      padding: 6px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.5);
+      font-size: 12px;
+      color: var(--text-soft);
+      border: 1px solid rgba(255,255,255,0.06);
     }
 
-    .btn-delete:hover { background: #c62828; }
+    .engine-indicator-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--success);
+      box-shadow: 0 0 8px rgba(64, 209, 167, 0.9);
+    }
+
+    .grid-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 14px;
+    }
+
+    .metric-card {
+      background: var(--bg-surface);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      box-shadow: var(--shadow-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      opacity: 0.04;
+      background: radial-gradient(circle at top, #ffffff, transparent 60%);
+      pointer-events: none;
+    }
+
+    .metric-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      z-index: 1;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: var(--text-soft);
+    }
+
+    .metric-icon {
+      width: 26px;
+      height: 26px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.02);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .metric-icon svg {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2.4;
+    }
+
+    .metric-value {
+      font-size: 26px;
+      font-weight: 600;
+      z-index: 1;
+    }
+
+    .metric-foot {
+      font-size: 11px;
+      color: var(--text-soft);
+      z-index: 1;
+    }
+
+    .metric-card.suspicious .metric-value { color: var(--warning); }
+    .metric-card.legit .metric-value { color: var(--success); }
+    .metric-card.rules .metric-value { color: var(--accent); }
+
+    /* ===== CHART / ALERTS ===== */
+
+    .panel {
+      background: var(--bg-surface-soft);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(255,255,255,0.05);
+      padding: 14px 16px 16px;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .panel-title {
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-title svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .panel-subtitle {
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    .panel-legends {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .legend-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+
+    .legend-dot.malicious { background: var(--danger); }
+    .legend-dot.benign { background: var(--success); }
+
+    #chart-container {
+      height: 330px;
+    }
+
+    .alerts-list {
+      list-style: none;
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .alert-item {
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: var(--bg-surface);
+      border: 1px solid rgba(255,255,255,0.04);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+    }
+
+    .alert-badge {
+      padding: 4px 8px;
+      border-radius: var(--radius-pill);
+      background: var(--danger-soft);
+      color: var(--danger);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+    }
+
+    .alert-info {
+      flex: 1;
+    }
+
+    .alert-line {
+      font-weight: 500;
+    }
+
+    .alert-meta {
+      font-size: 11px;
+      color: var(--text-soft);
+      margin-top: 2px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 12px 8px;
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+
+    /* ===== SEÇÕES GENÉRICAS ===== */
+
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    /* Form / lists dos outros módulos reaproveitando seu CSS antigo, só ajustando leve */
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: var(--text-muted);
+    }
+
+    select, input[type="text"], input[type="email"], input[type="number"] {
+      width: 100%;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.06);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+
+    select:focus, input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(45, 140, 255, 0.35);
+      background: #161925;
+    }
+
+    button.primary-btn {
+      padding: 10px 14px;
+      border-radius: var(--radius-pill);
+      border: none;
+      background: var(--accent);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    button.primary-btn:hover {
+      background: var(--accent-strong);
+      box-shadow: 0 10px 24px rgba(25, 110, 230, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .blocks-list, .contacts-list, .rules-list {
+      list-style: none;
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .block-item, .contact-item, .rule-item {
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: var(--bg-surface);
+      border: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .contact-item.disabled {
+      opacity: 0.6;
+    }
+
+    .contact-actions button,
+    .rule-actions button {
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      border: none;
+      cursor: pointer;
+      background: rgba(255,255,255,0.05);
+      color: var(--text-main);
+    }
+
+    .contact-actions button:hover,
+    .rule-actions button:hover {
+      background: rgba(255,255,255,0.11);
+    }
+
   </style>
 </head>
-<body>
-  <header>🛡️ ARGOS IDS</header>
-  <button id="menu-toggle">☰</button>
-
-  <aside id="sidebar">
-    <h2>Menu</h2>
-    <ul>
-      <li onclick="showSection('dashboard')">📊 Dashboard</li>
-      <li onclick="showSection('block')">🚫 Bloquear Tráfego</li>
-      <li onclick="showSection('blocked')">📋 Bloqueios Ativos</li>
-      <li onclick="showSection('contacts')">📧 Configurar Contatos</li>
-      <li onclick="showSection('rules')">🧩 Regras (Pré-filtro)</li>
-    </ul>
-  </aside>
-
-  <div class="container" id="main-container">
-    <!-- DASHBOARD -->
-    <div id="dashboard-section">
-      <div class="mode-box">
-        <div class="mode-status">
-          🧭 Modo de mitigação atual: 
-          <span id="modeDisplay" class="block">BLOCK</span>
+<body class="sidebar-hidden-mobile">
+  <div class="app-shell">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="argos-logo-wrap">
+          <!-- Usa o logo do Argos que você já tem no projeto -->
+          <img src="Figuras/argos-logo.png" alt="ARGOS-IDS Logo">
         </div>
-        <div class="mode-buttons">
-          <button onclick="setMode('block')">Bloquear</button>
-          <button onclick="setMode('alert')">Apenas Alerta</button>
+        <div class="sidebar-title">
+          <span class="sidebar-title-main">ARGOS IDS</span>
+          <span class="sidebar-title-sub">Network defense</span>
+        </div>
+        <div class="engine-status">
+          <span class="engine-dot"></span>
+          <span>Engine online</span>
         </div>
       </div>
 
-      <div class="overview">
-        <div class="card">
-          <h3>SWITCHES ATIVOS</h3>
-          <p id="switches">-</p>
+      <div class="sidebar-section-label"><span>Visão geral</span></div>
+      <ul class="nav-list">
+        <li class="nav-item active" data-section="dashboard">
+          <span class="nav-item-icon"><i data-feather="activity"></i></span>
+          <span class="nav-label">Dashboard</span>
+        </li>
+        <li class="nav-item" data-section="block">
+          <span class="nav-item-icon"><i data-feather="slash"></i></span>
+          <span class="nav-label">Bloquear tráfego</span>
+        </li>
+        <li class="nav-item" data-section="blocked">
+          <span class="nav-item-icon"><i data-feather="shield-off"></i></span>
+          <span class="nav-label">Bloqueios ativos</span>
+        </li>
+      </ul>
+
+      <div class="sidebar-section-label"><span>Configuração</span></div>
+      <ul class="nav-list">
+        <li class="nav-item" data-section="contacts">
+          <span class="nav-item-icon"><i data-feather="mail"></i></span>
+          <span class="nav-label">Contatos de alerta</span>
+        </li>
+        <li class="nav-item" data-section="rules">
+          <span class="nav-item-icon"><i data-feather="filter"></i></span>
+          <span class="nav-label">Regras (pré-filtro)</span>
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div>ARGOS-IDS &copy; 2025</div>
+        <div style="margin-top:4px;">Detecção e mitigação de ataques volumétricos em SDN.</div>
+      </div>
+    </aside>
+
+    <!-- MAIN AREA -->
+    <div class="main-layout">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-toggle-btn" id="menu-toggle">
+            <i data-feather="menu"></i>
+          </button>
+          <div class="topbar-title">
+            <span class="topbar-title-main">ARGOS IDS Dashboard</span>
+            <span class="topbar-title-sub">Detecção e mitigação de ataques volumétricos em SDN</span>
+          </div>
         </div>
-        <div class="card">
-          <h3>HOSTS ATIVOS</h3>
-          <p id="hosts">-</p>
+        <div class="topbar-right">
+          <div class="badge-soft">
+            <i data-feather="cpu"></i>
+            <span>Tempo real</span>
+          </div>
         </div>
-        <div class="card">
-          <h3>TRÁFEGO SUSPEITO</h3>
-          <p id="suspiciousTraffic" class="orange">-</p>
-        </div>
-        <div class="card">
-          <h3>TRÁFEGO LEGÍTIMO</h3>
-          <p id="legitTraffic" class="green">-</p>
-        </div>
-        <div class="card">
-          <h3>REGRAS ATIVAS</h3>
-          <p id="rules">-</p>
-        </div>
-      </div>
+      </header>
 
-      <div id="chart-container">
-        <canvas id="trafficChart"></canvas>
-      </div>
+      <main class="main-scroll">
+        <!-- DASHBOARD -->
+        <section id="dashboard-section" class="section active">
+          <div class="mode-card">
+            <div class="mode-info">
+              <div class="mode-title">Modo de mitigação</div>
+              <div class="mode-current">
+                Estado atual:
+                <span id="modeBadge" class="mode-badge block">
+                  <i data-feather="shield"></i>
+                  <span id="modeLabel">BLOCK</span>
+                </span>
+              </div>
+            </div>
+            <div class="mode-controls">
+              <div class="mode-switch-group">
+                <button class="mode-chip active" id="btn-mode-block" onclick="setMode('block')">
+                  <i data-feather="shield"></i>
+                  Bloquear
+                </button>
+                <button class="mode-chip" id="btn-mode-alert" onclick="setMode('alert')">
+                  <i data-feather="bell"></i>
+                  Apenas alerta
+                </button>
+              </div>
+              <div class="engine-indicator">
+                <span class="engine-indicator-dot"></span>
+                <span>Engine conectado ao backend</span>
+              </div>
+            </div>
+          </div>
 
-      <div class="alerts">
-        <h3>🚨 Alertas Recentes</h3>
-        <ul id="alerts-list"></ul>
-      </div>
-    </div>
+          <div class="grid-metrics" style="margin-top: 10px;">
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-label">Switches ativos</span>
+                <div class="metric-icon"><i data-feather="git-branch"></i></div>
+              </div>
+              <div class="metric-value" id="switches">-</div>
+              <div class="metric-foot">Switches SDN atualmente conectados.</div>
+            </div>
 
-    <!-- BLOQUEAR TRÁFEGO -->
-    <div id="block-section" class="hidden">
-      <h2>🚫 Bloquear Tráfego</h2>
-      <div class="form-group">
-        <label for="switchSelect">Switch</label>
-        <select id="switchSelect"></select>
-      </div>
-      <div class="form-group">
-        <label for="srcInput">IP Origem</label>
-        <input type="text" id="srcInput" placeholder="10.0.0.1">
-      </div>
-      <div class="form-group">
-        <label for="dstInput">IP Destino</label>
-        <input type="text" id="dstInput" placeholder="10.0.0.2">
-      </div>
-      <button onclick="blockTraffic()">🔒 Bloquear</button>
-    </div>
+            <div class="metric-card">
+              <div class="metric-header">
+                <span class="metric-label">Hosts ativos</span>
+                <div class="metric-icon"><i data-feather="activity"></i></div>
+              </div>
+              <div class="metric-value" id="hosts">-</div>
+              <div class="metric-foot">Hosts detectados na topologia.</div>
+            </div>
 
-    <!-- CONFIGURAR CONTATOS -->
-    <div id="contacts-section" class="hidden">
-      <h2>📧 Configuração de Contatos</h2>
-      
-      <div class="form-group">
-        <label for="contactId">ID (automático)</label>
-        <input type="text" id="contactId" readonly>
-      </div>
-      
-      <div class="form-group">
-        <label for="nameInput">Nome *</label>
-        <input type="text" id="nameInput" placeholder="Nome do Contato">
-      </div>
-      
-      <div class="form-group">
-        <label for="emailInput">E-mail *</label>
-        <input type="email" id="emailInput" placeholder="email@exemplo.com">
-      </div>
-      
-      <div class="form-group">
-        <label>
-          <input type="checkbox" id="enabledCheckbox" checked>
-          Ativar envio de alertas
-        </label>
-      </div>
-      
-      <div style="display: flex; gap: 10px;">
-        <button onclick="saveContact()" style="flex: 1;">💾 Salvar Contato</button>
-        <button onclick="clearContactForm()" style="flex: 1; background: #666;">🔄 Limpar</button>
-      </div>
+            <div class="metric-card suspicious">
+              <div class="metric-header">
+                <span class="metric-label">Tráfego suspeito</span>
+                <div class="metric-icon"><i data-feather="alert-triangle"></i></div>
+              </div>
+              <div class="metric-value" id="suspiciousTraffic">-</div>
+              <div class="metric-foot">Fluxos classificados como potenciais ameaças.</div>
+            </div>
 
-      <h3 style="margin-top: 30px;">Contatos Cadastrados:</h3>
-      <ul id="contacts-list" style="list-style: none; padding: 0;"></ul>
-    </div>
+            <div class="metric-card legit">
+              <div class="metric-header">
+                <span class="metric-label">Tráfego legítimo</span>
+                <div class="metric-icon"><i data-feather="check-circle"></i></div>
+              </div>
+              <div class="metric-value" id="legitTraffic">-</div>
+              <div class="metric-foot">Percentual do tráfego considerado benigno.</div>
+            </div>
 
-    <!-- BLOQUEIOS ATIVOS -->
-    <div id="blocked-section" class="hidden">
-      <h2>📋 Bloqueios Ativos</h2>
-      <div class="blocks-list">
-        <h3>Total de bloqueios: <span id="blocks-count">0</span></h3>
-        <ul id="blocks-list"></ul>
-      </div>
-    </div>
+            <div class="metric-card rules">
+              <div class="metric-header">
+                <span class="metric-label">Regras ativas</span>
+                <div class="metric-icon"><i data-feather="sliders"></i></div>
+              </div>
+              <div class="metric-value" id="rules">-</div>
+              <div class="metric-foot">Regras de pré-filtro atualmente em uso.</div>
+            </div>
+          </div>
 
-  <div id="rules-section" class="hidden">
-    <h2>🧩 Regras (Pré-filtro)</h2>
-  
-    <div class="alerts">
-      <h3>Criar regra rápida</h3>
-      <div class="form-group">
-        <label>Nome</label>
-        <input id="ruleName" placeholder="Ex.: Bloquear >100 KB">
-      </div>
-  
-      <div class="form-group">
-        <label>Ação</label>
-        <select id="ruleAction">
-          <option value="block">Bloquear</option>
-          <option value="alert">Apenas alertar</option>
-        </select>
-      </div>
-  
-      <details style="margin-bottom:10px;">
-        <summary><strong>Filtros por campos (fáceis)</strong></summary>
-        <div class="form-group"><label>IP origem (regex opcional)</label><input id="ruleIpSrc" placeholder="ex.: ^10\.0\.\d+\.\d+$"></div>
-        <div class="form-group"><label>IP destino (regex opcional)</label><input id="ruleIpDst" placeholder="ex.: ^192\.168\..*"></div>
-        <div class="form-group"><label>Protocolo (TCP/UDP/ICMP ou regex)</label><input id="ruleProto" placeholder="ex.: tcp"></div>
-        <div class="form-group"><label>Porta origem (exata)</label><input id="rulePortSrc" type="number" min="0" max="65535" placeholder="ex.: 12345"></div>
-        <div class="form-group"><label>Porta destino (exata)</label><input id="rulePortDst" type="number" min="0" max="65535" placeholder="ex.: 22"></div>
-      </details>
-  
-      <details>
-        <summary><strong>Limites (acionam a regra quando excedidos)</strong></summary>
-        <div class="form-group"><label>Bytes > </label><input id="ruleMaxBytes" type="number" placeholder="ex.: 100000"></div>
-        <div class="form-group"><label>Pacotes > </label><input id="ruleMaxPkts" type="number" placeholder="ex.: 1000"></div>
-        <div class="form-group"><label>PPS > </label><input id="ruleMaxPps" type="number" placeholder="ex.: 500"></div>
-        <div class="form-group"><label>BPS > </label><input id="ruleMaxBps" type="number" placeholder="ex.: 1000000"></div>
-      </details>
-  
-      <button onclick="createRule()">➕ Criar regra</button>
-    </div>
-  
-    <div class="alerts">
-      <h3>Presets (clique para carregar)</h3>
-      <ul id="presetList"></ul>
-    </div>
-  
-    <div class="blocks-list">
-      <h3>Regras ativas</h3>
-      <ul id="ruleList"></ul>
+          <div class="panel" style="margin-top: 14px;">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">
+                  <i data-feather="trending-up"></i>
+                  Network Traffic Analysis
+                </div>
+                <div class="panel-subtitle">Evolução do tráfego malicioso vs benigno ao longo do tempo.</div>
+              </div>
+              <div class="panel-legends">
+                <span class="legend-dot malicious"></span> Tráfego Malicioso
+                <span class="legend-dot benign"></span> Tráfego Benigno
+              </div>
+            </div>
+            <div id="chart-container">
+              <canvas id="trafficChart"></canvas>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top: 14px;">
+            <div class="panel-header">
+              <div class="panel-title">
+                <i data-feather="alert-octagon"></i>
+                Alertas recentes
+              </div>
+            </div>
+            <ul id="alerts-list" class="alerts-list">
+              <!-- preenchido via JS -->
+            </ul>
+          </div>
+        </section>
+
+        <!-- BLOQUEAR TRÁFEGO -->
+        <section id="block-section" class="section">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <i data-feather="slash"></i>
+                Bloquear tráfego
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="switchSelect">Switch</label>
+              <select id="switchSelect"></select>
+            </div>
+            <div class="form-group">
+              <label for="srcInput">IP origem</label>
+              <input type="text" id="srcInput" placeholder="10.0.0.1" />
+            </div>
+            <div class="form-group">
+              <label for="dstInput">IP destino</label>
+              <input type="text" id="dstInput" placeholder="10.0.0.2" />
+            </div>
+            <button class="primary-btn" onclick="blockTraffic()">
+              <i data-feather="shield"></i>
+              Bloquear
+            </button>
+          </div>
+        </section>
+
+        <!-- BLOQUEIOS ATIVOS -->
+        <section id="blocked-section" class="section">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <i data-feather="shield-off"></i>
+                Bloqueios ativos
+              </div>
+              <div class="panel-subtitle">
+                Total: <span id="blocks-count">0</span>
+              </div>
+            </div>
+            <ul id="blocks-list" class="blocks-list"></ul>
+          </div>
+        </section>
+
+        <!-- CONTATOS -->
+        <section id="contacts-section" class="section">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">
+                <i data-feather="mail"></i>
+                Contatos de alerta
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="contactId">ID (automático)</label>
+              <input type="text" id="contactId" readonly />
+            </div>
+            <div class="form-group">
+              <label for="nameInput">Nome *</label>
+              <input type="text" id="nameInput" placeholder="Nome do contato" />
+            </div>
+            <div class="form-group">
+              <label for="emailInput">E-mail *</label>
+              <input type="email" id="emailInput" placeholder="email@exemplo.com" />
+            </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+              <input type="checkbox" id="enabledCheckbox" checked style="width:auto;">
+              <label for="enabledCheckbox" style="margin:0;">Ativar envio de alertas</label>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:6px;">
+              <button class="primary-btn" style="flex:1;" onclick="saveContact()">
+                <i data-feather="save"></i>
+                Salvar contato
+              </button>
+              <button class="primary-btn" style="flex:1;background:#2b2f3b;" onclick="clearContactForm()">
+                <i data-feather="rotate-ccw"></i>
+                Limpar
+              </button>
+            </div>
+
+            <h3 style="margin-top:20px;font-size:14px;">Contatos cadastrados</h3>
+            <ul id="contacts-list" class="contacts-list"></ul>
+          </div>
+        </section>
+
+        <!-- REGRAS (PRÉ-FILTRO) -->
+        <section id="rules-section" class="section">
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">
+                  <i data-feather="filter"></i>
+                  Regras de pré-filtro
+                </div>
+                <div class="panel-subtitle">
+                  Defina expressões e limites para filtrar tráfego antes da fase de ML.
+                </div>
+              </div>
+            </div>
+
+            <h4 style="font-size:13px;margin-bottom:6px;">Criar regra rápida</h4>
+            <div class="form-group">
+              <label>Nome</label>
+              <input id="ruleName" placeholder="Ex.: Bloquear >100 KB" />
+            </div>
+            <div class="form-group">
+              <label>Ação</label>
+              <select id="ruleAction">
+                <option value="block">Bloquear</option>
+                <option value="alert">Apenas alertar</option>
+              </select>
+            </div>
+
+            <details style="margin-bottom:10px;">
+              <summary style="cursor:pointer;margin-bottom:6px;">Filtros por campos</summary>
+              <div class="form-group">
+                <label>IP origem (regex opcional)</label>
+                <input id="ruleIpSrc" placeholder="ex.: ^10\\.0\\.\\d+\\.\\d+$" />
+              </div>
+              <div class="form-group">
+                <label>IP destino (regex opcional)</label>
+                <input id="ruleIpDst" placeholder="ex.: ^192\\.168\\..*" />
+              </div>
+              <div class="form-group">
+                <label>Protocolo (TCP/UDP/ICMP ou regex)</label>
+                <input id="ruleProto" placeholder="ex.: tcp" />
+              </div>
+              <div class="form-group">
+                <label>Porta origem (exata)</label>
+                <input id="rulePortSrc" type="number" min="0" max="65535" placeholder="12345" />
+              </div>
+              <div class="form-group">
+                <label>Porta destino (exata)</label>
+                <input id="rulePortDst" type="number" min="0" max="65535" placeholder="22" />
+              </div>
+            </details>
+
+            <details>
+              <summary style="cursor:pointer;margin-bottom:6px;">Limites (acionam a regra quando excedidos)</summary>
+              <div class="form-group">
+                <label>Bytes &gt; </label>
+                <input id="ruleMaxBytes" type="number" placeholder="100000" />
+              </div>
+              <div class="form-group">
+                <label>Pacotes &gt; </label>
+                <input id="ruleMaxPkts" type="number" placeholder="1000" />
+              </div>
+              <div class="form-group">
+                <label>PPS &gt; </label>
+                <input id="ruleMaxPps" type="number" placeholder="500" />
+              </div>
+              <div class="form-group">
+                <label>BPS &gt; </label>
+                <input id="ruleMaxBps" type="number" placeholder="1000000" />
+              </div>
+            </details>
+
+            <button class="primary-btn" style="margin-top:8px;" onclick="createRule()">
+              <i data-feather="plus-circle"></i>
+              Criar regra
+            </button>
+
+            <h4 style="font-size:13px;margin-top:18px;">Presets</h4>
+            <ul id="presetList" class="rules-list"></ul>
+
+            <h4 style="font-size:13px;margin-top:18px;">Regras ativas</h4>
+            <ul id="ruleList" class="rules-list"></ul>
+          </div>
+        </section>
+      </main>
     </div>
   </div>
-  
 
   <script>
-    const sidebar = document.getElementById('sidebar');
-    const container = document.getElementById('main-container');
-    const menuToggle = document.getElementById('menu-toggle');
+    // ===== ICONES =====
+    feather.replace();
 
-    menuToggle.onclick = () => {
-      sidebar.classList.toggle('collapsed');
-      container.classList.toggle('full');
-    };
+    // ===== SIDEBAR / NAVEGAÇÃO =====
+    const navItems = document.querySelectorAll('.nav-item');
+    const sections = ['dashboard','block','blocked','contacts','rules'];
 
-    // ========== NAVEGAÇÃO ==========
-    async function showSection(section) {
-      const sections = ['dashboard','block','blocked','contacts','rules'];
-      sections.forEach(s => {
-        const el = document.getElementById(`${s}-section`);
-        if (el) el.classList.add('hidden');
+    navItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const section = item.getAttribute('data-section');
+
+        navItems.forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+
+        sections.forEach(s => {
+          const el = document.getElementById(`${s}-section`);
+          if (!el) return;
+          el.classList.toggle('active', s === section);
+        });
+
+        if (section === 'dashboard') { fetchMode(); updateDashboard(); }
+        if (section === 'blocked')   { updateBlockedFlows(); }
+        if (section === 'contacts')  { fetchContacts(); }
+        if (section === 'block')     { fetchSwitches(); }
+        if (section === 'rules')     { fetchRulePresets(); listRules(); }
+      });
     });
-      
-      document.getElementById(section + '-section').classList.remove('hidden');
-      
-      if (section === 'dashboard') { await fetchMode(); await updateDashboard(); }
-      if (section === 'blocked')   { await updateBlockedFlows(); }
-      if (section === 'contacts')  { await fetchContacts(); }
-      if (section === 'block')     { await fetchSwitches(); }
-      if (section === 'rules')     { await fetchRulePresets(); await listRules(); }
-    }
 
-    // ========== BLOQUEIO DE TRÁFEGO ==========
+    const menuToggleBtn = document.getElementById('menu-toggle');
+    menuToggleBtn.addEventListener('click', () => {
+      // desktop: colapsa; mobile: esconde de vez
+      if (window.innerWidth <= 900) {
+        document.body.classList.toggle('sidebar-hidden-mobile');
+      } else {
+        document.body.classList.toggle('sidebar-collapsed');
+      }
+    });
+
+    // ===== BLOQUEIO DE TRÁFEGO =====
+
     async function fetchSwitches() {
       try {
         const response = await fetch('/api/switches');
@@ -612,7 +1188,7 @@
           })
         });
         const result = await resp.json();
-        
+
         if (result.status === 'success') {
           alert('✅ ' + result.message);
           document.getElementById('srcInput').value = '';
@@ -627,11 +1203,11 @@
 
     async function unblockTraffic(blockId) {
       if (!confirm('Deseja realmente desbloquear este tráfego?')) return;
-      
+
       try {
         const resp = await fetch(`/unblock/${blockId}`, { method: 'DELETE' });
         const result = await resp.json();
-        
+
         if (result.status === 'success') {
           alert('✅ ' + result.message);
           await updateBlockedFlows();
@@ -645,46 +1221,60 @@
 
     async function updateBlockedFlows() {
       try {
-        console.log('🔍 Carregando bloqueios...');
         const resp = await fetch('/api/blocked');
         const data = await resp.json();
-        
-        console.log('📦 Dados:', data);
-        
+
         document.getElementById('blocks-count').textContent = data.total;
-        
+
         const list = document.getElementById('blocks-list');
         list.innerHTML = '';
-        
-        if (data.blocked.length === 0) {
-          list.innerHTML = '<li style="text-align:center; color:#888;">Nenhum bloqueio ativo</li>';
+
+        if (!data.blocked.length) {
+          list.innerHTML = '<li class="empty-state">Nenhum bloqueio ativo</li>';
           return;
         }
-        
+
         data.blocked.forEach(block => {
           const li = document.createElement('li');
           li.className = 'block-item';
           li.innerHTML = `
             <div class="info">
-              <strong>🚫 Switch ${block.dpid}</strong><br>
-              ${block.ip_src} → ${block.ip_dst}<br>
-              <small style="color:#888;">${block.timestamp} | ${block.reason}</small>
+              <div><strong>Switch ${block.dpid}</strong> — ${block.ip_src} → ${block.ip_dst}</div>
+              <div style="font-size:11px;color:#9da4be;">${block.timestamp} | ${block.reason}</div>
             </div>
             <div class="actions">
-              <button onclick="unblockTraffic(${block.id})">🔓 Desbloquear</button>
+              <button onclick="unblockTraffic(${block.id})">Desbloquear</button>
             </div>
           `;
           list.appendChild(li);
         });
-        
-        console.log('✅ Bloqueios renderizados:', data.blocked.length);
       } catch (e) {
-        console.error('❌ Erro ao carregar bloqueios:', e);
+        console.error('Erro ao carregar bloqueios:', e);
       }
     }
 
-    // ========== DASHBOARD ==========
-    let trafficChart;
+    // ===== DASHBOARD / GRÁFICO =====
+
+    let trafficChart = null;
+    const MAX_POINTS = 60; // limite para evitar travar quando o ataque gera muito ponto
+
+    function normalizeTrafficData(raw) {
+      if (!raw || !raw.labels || !raw.datasets) return raw;
+
+      // se vierem MUITOS pontos, mantém só os últimos MAX_POINTS
+      const len = raw.labels.length;
+      if (len > MAX_POINTS) {
+        const start = len - MAX_POINTS;
+        raw.labels = raw.labels.slice(start);
+        raw.datasets = raw.datasets.map(ds => {
+          return {
+            ...ds,
+            data: ds.data.slice(start)
+          };
+        });
+      }
+      return raw;
+    }
 
     async function updateDashboard() {
       try {
@@ -695,7 +1285,7 @@
           fetch('/api/alerts')
         ]);
 
-        const traffic = await trafficResp.json();
+        let traffic = await trafficResp.json();
         const stats = await statsResp.json();
         const topo = await topoResp.json();
         const alerts = await alertsResp.json();
@@ -706,21 +1296,48 @@
         document.getElementById('legitTraffic').textContent = stats.legitimate_traffic_pct + '%';
         document.getElementById('rules').textContent = stats.rules_active;
 
-        // Gráfico
+        // normaliza / limita pontos
+        traffic = normalizeTrafficData(traffic);
+
+        // opções sem animação pesada pra não travar sob ataque
+        const chartOptions = {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { color: '#9da4be' },
+              grid: { color: 'rgba(255,255,255,0.04)' }
+            },
+            x: {
+              ticks: { color: '#9da4be', maxRotation: 0 },
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#11141a',
+              borderColor: 'rgba(255,255,255,0.08)',
+              borderWidth: 1,
+              padding: 8,
+              titleColor: '#f5f7ff',
+              bodyColor: '#f5f7ff',
+              cornerRadius: 8
+            }
+          }
+        };
+
         if (!trafficChart) {
           const ctx = document.getElementById('trafficChart').getContext('2d');
           trafficChart = new Chart(ctx, {
             type: 'line',
             data: traffic,
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: { beginAtZero: true, ticks: { color: '#ccc' } },
-                x: { ticks: { color: '#ccc' } }
-              },
-              plugins: { legend: { labels: { color: '#ccc' } } }
-            }
+            options: chartOptions
           });
         } else {
           trafficChart.data = traffic;
@@ -729,14 +1346,20 @@
 
         const alertsList = document.getElementById('alerts-list');
         alertsList.innerHTML = '';
-      
-        if (alerts.alerts.length === 0) {
-          alertsList.innerHTML = '<li style="text-align:center; color:#888;">Nenhum alerta recente</li>';
+
+        if (!alerts.alerts.length) {
+          alertsList.innerHTML = '<li class="empty-state">Nenhum alerta recente</li>';
         } else {
           alerts.alerts.forEach(a => {
             const li = document.createElement('li');
-            li.className = 'alert red';
-            li.innerHTML = `<strong>⚠️ Tráfego malicioso detectado</strong><br>${a.source} → ${a.destination}<br><small>${a.time}</small>`;
+            li.className = 'alert-item';
+            li.innerHTML = `
+              <span class="alert-badge">Tráfego malicioso</span>
+              <div class="alert-info">
+                <div class="alert-line">${a.source} → ${a.destination}</div>
+                <div class="alert-meta">${a.time}</div>
+              </div>
+            `;
             alertsList.appendChild(li);
           });
         }
@@ -745,20 +1368,33 @@
       }
     }
 
-    // ========== MODO DE MITIGAÇÃO ==========
+    // ===== MODO DE MITIGAÇÃO =====
+
     async function fetchMode() {
       try {
         const res = await fetch('/api/config/mode');
         const data = await res.json();
         const mode = data.mode || 'block';
-        const el = document.getElementById('modeDisplay');
-        el.textContent = mode.toUpperCase();
-        el.className = mode === 'block' ? 'block' : 'alert';
+        updateModeUI(mode);
       } catch (e) {
         console.error('Erro ao obter modo:', e);
       }
-    }  
-      
+    }
+
+    function updateModeUI(mode) {
+      const badge = document.getElementById('modeBadge');
+      const label = document.getElementById('modeLabel');
+      const btnBlock = document.getElementById('btn-mode-block');
+      const btnAlert = document.getElementById('btn-mode-alert');
+
+      label.textContent = mode.toUpperCase();
+      badge.classList.toggle('block', mode === 'block');
+      badge.classList.toggle('alert', mode === 'alert');
+
+      btnBlock.classList.toggle('active', mode === 'block');
+      btnAlert.classList.toggle('active', mode === 'alert');
+    }
+
     async function setMode(mode) {
       try {
         const res = await fetch('/api/config/mode', {
@@ -768,13 +1404,13 @@
         });
         const data = await res.json();
         alert(data.message || 'Modo atualizado');
-        await fetchMode();
+        updateModeUI(mode);
       } catch (e) {
         alert('Erro ao mudar o modo: ' + e);
       }
     }
 
-    // ========== CONTATOS ==========
+    // ===== CONTATOS =====
     let editingContactId = null;
 
     async function saveContact() {
@@ -791,7 +1427,7 @@
       try {
         let url = '/api/contacts';
         let method = 'POST';
-        
+
         if (contactId) {
           url = `/api/contacts/${contactId}`;
           method = 'PUT';
@@ -802,7 +1438,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, email, enabled })
         });
-        
+
         const result = await res.json();
 
         if (result.status === 'success') {
@@ -830,12 +1466,7 @@
       document.getElementById('nameInput').value = contact.name;
       document.getElementById('emailInput').value = contact.email;
       document.getElementById('enabledCheckbox').checked = contact.enabled;
-      
-      document.getElementById('contacts-section').scrollIntoView({ behavior: 'smooth' });
-      
-      setTimeout(() => {
-        document.getElementById('nameInput').focus();
-      }, 500);
+      editingContactId = contact.id;
     }
 
     async function toggleContactStatus(contactId, currentStatus) {
@@ -843,13 +1474,13 @@
         const res = await fetch(`/api/contacts/${contactId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             name: null,
             email: null,
             enabled: !currentStatus
           })
         });
-        
+
         const result = await res.json();
 
         if (result.status === 'success') {
@@ -866,10 +1497,10 @@
       if (!confirm('⚠️ Deseja realmente excluir este contato?')) return;
 
       try {
-        const res = await fetch(`/api/contacts/${contactId}`, { 
-          method: 'DELETE' 
+        const res = await fetch(`/api/contacts/${contactId}`, {
+          method: 'DELETE'
         });
-        
+
         const result = await res.json();
 
         if (result.status === 'success') {
@@ -888,48 +1519,44 @@
       try {
         const res = await fetch('/api/contacts');
         const data = await res.json();
-        
+
         const list = document.getElementById('contacts-list');
         list.innerHTML = '';
-        
-        if (data.contacts.length === 0) {
-          list.innerHTML = '<li style="text-align:center; color:#888; padding: 20px;">Nenhum contato cadastrado</li>';
+
+        if (!data.contacts.length) {
+          list.innerHTML = '<li class="empty-state">Nenhum contato cadastrado</li>';
           return;
         }
-        
+
         data.contacts.forEach(contact => {
           const li = document.createElement('li');
           li.className = `contact-item ${contact.enabled ? '' : 'disabled'}`;
-          
           li.innerHTML = `
             <div class="contact-info">
-              <strong>
-                ${contact.name}
-                <span class="contact-status ${contact.enabled ? 'active' : 'inactive'}">
-                  ${contact.enabled ? '✓ ATIVO' : '✗ INATIVO'}
+              <div>
+                <strong>${contact.name}</strong>
+                <span style="font-size:11px;margin-left:8px;color:${contact.enabled ? '#40d1a7' : '#9da4be'};">
+                  ${contact.enabled ? 'ATIVO' : 'INATIVO'}
                 </span>
-              </strong>
-              <small>📧 ${contact.email}</small>
+              </div>
+              <div style="font-size:12px;color:#9da4be;">${contact.email}</div>
             </div>
             <div class="contact-actions">
-              <button class="btn-edit" onclick='editContact(${JSON.stringify(contact)})' title="Editar">
-                ✏️ Editar
+              <button onclick='editContact(${JSON.stringify(contact)})'>Editar</button>
+              <button onclick="toggleContactStatus(${contact.id}, ${contact.enabled})">
+                ${contact.enabled ? 'Desativar' : 'Ativar'}
               </button>
-              <button class="btn-toggle" onclick="toggleContactStatus(${contact.id}, ${contact.enabled})" title="Ativar/Desativar">
-                ${contact.enabled ? '🔕 Desativar' : '🔔 Ativar'}
-              </button>
-              <button class="btn-delete" onclick="deleteContact(${contact.id})" title="Remover">
-                🗑️ Remover
-              </button>
+              <button onclick="deleteContact(${contact.id})">Remover</button>
             </div>
           `;
-          
           list.appendChild(li);
         });
       } catch (e) {
         console.error('Erro ao carregar contatos:', e);
       }
     }
+
+    // ===== REGRAS =====
 
     async function fetchRulePresets() {
       try {
@@ -939,9 +1566,14 @@
         ul.innerHTML = '';
         data.presets.forEach(p => {
           const li = document.createElement('li');
+          li.className = 'rule-item';
           li.style.cursor = 'pointer';
-          li.className = 'alert';
-          li.innerHTML = `<strong>${p.name}</strong><br><small>${p.description||''}</small>`;
+          li.innerHTML = `
+            <div class="rule-info">
+              <strong>${p.name}</strong><br>
+              <span style="font-size:12px;color:#9da4be;">${p.description || ''}</span>
+            </div>
+          `;
           li.onclick = () => {
             document.getElementById('ruleName').value = p.name || '';
             document.getElementById('ruleAction').value = p.action || 'block';
@@ -958,7 +1590,9 @@
           };
           ul.appendChild(li);
         });
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     async function createRule() {
@@ -981,7 +1615,11 @@
       if (!body.name) { alert('Dê um nome à regra.'); return; }
 
       try {
-        const res = await fetch('/api/rules', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+        const res = await fetch('/api/rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
         const data = await res.json();
         if (data.status === 'success') {
           alert('✅ Regra criada');
@@ -999,26 +1637,29 @@
         const ul = document.getElementById('ruleList');
         ul.innerHTML = '';
         if (!data.rules.length) {
-          ul.innerHTML = '<li style="text-align:center;color:#888;">Nenhuma regra</li>';
+          ul.innerHTML = '<li class="empty-state">Nenhuma regra</li>';
           return;
         }
         data.rules.forEach(r => {
           const li = document.createElement('li');
-          li.className = 'block-item';
+          li.className = 'rule-item';
           li.innerHTML = `
             <div class="info">
               <strong>${r.name}</strong> — ${r.action.toUpperCase()} ${r.enabled ? '' : '(desativada)'}<br>
-              <small>${r.description || ''}</small><br>
-              <small>Filtros: 
-                ${r.ip_src || ''} ${r.ip_dst || ''} ${r.protocol || ''} 
+              <span style="font-size:12px;color:#9da4be;">${r.description || ''}</span><br>
+              <span style="font-size:11px;color:#70758a;">
+                Filtros:
+                ${r.ip_src || ''} ${r.ip_dst || ''} ${r.protocol || ''}
                 ${r.port_src ? 'sport='+r.port_src : ''} ${r.port_dst ? 'dport='+r.port_dst : ''}
-                ${r.max_bytes ? 'bytes>'+r.max_bytes : ''} ${r.max_packets ? 'pkts>'+r.max_packets : ''} 
+                ${r.max_bytes ? 'bytes>'+r.max_bytes : ''} ${r.max_packets ? 'pkts>'+r.max_packets : ''}
                 ${r.max_pps ? 'pps>'+r.max_pps : ''} ${r.max_bps ? 'bps>'+r.max_bps : ''}
-              </small>
+              </span>
             </div>
-            <div class="actions">
-              <button onclick="toggleRule(${r.id}, ${r.enabled ? 'false':'true'})">${r.enabled ? 'Desativar' : 'Ativar'}</button>
-              <button onclick="deleteRule(${r.id})">🗑️</button>
+            <div class="rule-actions">
+              <button onclick="toggleRule(${r.id}, ${r.enabled ? 'false':'true'})">
+                ${r.enabled ? 'Desativar' : 'Ativar'}
+              </button>
+              <button onclick="deleteRule(${r.id})">Remover</button>
             </div>`;
           ul.appendChild(li);
         });
@@ -1027,7 +1668,11 @@
 
     async function toggleRule(id, enabled) {
       try {
-        const res = await fetch(`/api/rules/${id}/toggle`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({enabled}) });
+        const res = await fetch(`/api/rules/${id}/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled })
+        });
         await res.json();
         listRules();
       } catch (e) { alert('❌ ' + e); }
@@ -1036,12 +1681,13 @@
     async function deleteRule(id) {
       if (!confirm('Remover regra?')) return;
       try {
-        const res = await fetch(`/api/rules/${id}`, { method:'DELETE' });
+        const res = await fetch(`/api/rules/${id}`, { method: 'DELETE' });
         await res.json();
         listRules();
       } catch (e) { alert('❌ ' + e); }
     }
 
+    // ===== INIT =====
     async function init() {
       await fetchSwitches();
       await fetchMode();
