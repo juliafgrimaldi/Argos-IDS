@@ -43,6 +43,8 @@
 
     body {
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 15px;
+      line-height: 1.45;
       background: radial-gradient(circle at top left, #1b2333 0, #101217 45%, #050609 100%);
       color: var(--text-main);
       height: 100vh;
@@ -104,14 +106,14 @@
     }
 
     .sidebar-title-main {
-      font-size: 15px;
+      font-size: 17px;
       font-weight: 600;
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
 
     .sidebar-title-sub {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-soft);
       text-transform: uppercase;
       letter-spacing: 0.16em;
@@ -123,13 +125,13 @@
 
     .engine-status {
       margin-left: auto;
-      padding: 4px 10px;
+      padding: 4px 12px;
       border-radius: var(--radius-pill);
       background: rgba(64, 209, 167, 0.1);
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      font-size: 11px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.1em;
       color: var(--success);
@@ -150,7 +152,7 @@
     .sidebar-section-label {
       margin-top: 10px;
       margin-bottom: 4px;
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-soft);
       text-transform: uppercase;
       letter-spacing: 0.14em;
@@ -172,10 +174,10 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 8px 10px;
+      padding: 9px 11px;
       border-radius: 999px;
       color: var(--text-muted);
-      font-size: 14px;
+      font-size: 15px;
       cursor: pointer;
       transition: background 0.18s ease, color 0.18s ease, transform 0.1s ease;
     }
@@ -192,15 +194,15 @@
     }
 
     .nav-item-icon {
-      width: 20px;
+      width: 22px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
     .nav-item-icon svg {
-      width: 18px;
-      height: 18px;
+      width: 19px;
+      height: 19px;
     }
 
     .nav-item span.nav-label {
@@ -216,7 +218,7 @@
       margin-top: auto;
       padding-top: 16px;
       border-top: 1px solid var(--border-subtle);
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-soft);
     }
 
@@ -234,7 +236,7 @@
     }
 
     .topbar {
-      height: 52px;
+      height: 54px;
       display: flex;
       align-items: center;
       padding: 0 20px 0 12px;
@@ -254,8 +256,8 @@
     }
 
     .menu-toggle-btn {
-      width: 32px;
-      height: 32px;
+      width: 34px;
+      height: 34px;
       border-radius: 12px;
       border: 1px solid rgba(255,255,255,0.06);
       background: rgba(9, 11, 18, 0.9);
@@ -273,8 +275,8 @@
     }
 
     .menu-toggle-btn svg {
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
       stroke-width: 2.4;
     }
 
@@ -285,13 +287,13 @@
     }
 
     .topbar-title-main {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 600;
       letter-spacing: 0.04em;
     }
 
     .topbar-title-sub {
-      font-size: 12px;
+      font-size: 13px;
       color: var(--text-soft);
     }
 
@@ -303,11 +305,11 @@
     }
 
     .badge-soft {
-      font-size: 11px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.16em;
       border-radius: var(--radius-pill);
-      padding: 4px 10px;
+      padding: 5px 11px;
       background: rgba(255,255,255,0.02);
       color: var(--text-soft);
       display: inline-flex;
@@ -316,8 +318,8 @@
     }
 
     .badge-soft svg {
-      width: 13px;
-      height: 13px;
+      width: 14px;
+      height: 14px;
     }
 
     .main-scroll {
@@ -336,7 +338,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      padding: 16px 18px;
+      padding: 18px 20px;
       border-radius: var(--radius-lg);
       background: radial-gradient(circle at top left, #1c2233 0, #141824 35%, #101217 100%);
       border: 1px solid rgba(255,255,255,0.04);
@@ -350,14 +352,14 @@
     }
 
     .mode-title {
-      font-size: 13px;
+      font-size: 14px;
       text-transform: uppercase;
       letter-spacing: 0.12em;
       color: var(--text-soft);
     }
 
     .mode-current {
-      font-size: 13px;
+      font-size: 14px;
       color: var(--text-muted);
       display: flex;
       align-items: center;
@@ -365,8 +367,8 @@
     }
 
     .mode-badge {
-      font-size: 11px;
-      padding: 3px 10px;
+      font-size: 12px;
+      padding: 4px 11px;
       border-radius: var(--radius-pill);
       text-transform: uppercase;
       letter-spacing: 0.16em;
@@ -401,8 +403,8 @@
 
     .mode-chip {
       border-radius: var(--radius-pill);
-      padding: 6px 14px;
-      font-size: 13px;
+      padding: 7px 15px;
+      font-size: 14px;
       cursor: pointer;
       border: none;
       background: transparent;
@@ -414,8 +416,8 @@
     }
 
     .mode-chip svg {
-      width: 15px;
-      height: 15px;
+      width: 16px;
+      height: 16px;
     }
 
     .mode-chip.active {
@@ -427,12 +429,12 @@
 
     .engine-indicator {
       border-radius: var(--radius-pill);
-      padding: 6px 12px;
+      padding: 7px 13px;
       display: inline-flex;
       align-items: center;
       gap: 8px;
       background: rgba(0,0,0,0.5);
-      font-size: 12px;
+      font-size: 13px;
       color: var(--text-soft);
       border: 1px solid rgba(255,255,255,0.06);
     }
@@ -466,12 +468,12 @@
     .metric-card {
       background: var(--bg-surface);
       border-radius: var(--radius-lg);
-      padding: 14px 16px;
+      padding: 15px 17px;
       border: 1px solid rgba(255, 255, 255, 0.04);
       box-shadow: var(--shadow-subtle);
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 7px;
       position: relative;
       overflow: hidden;
     }
@@ -494,15 +496,15 @@
     }
 
     .metric-label {
-      font-size: 12px;
+      font-size: 13px;
       letter-spacing: 0.13em;
       text-transform: uppercase;
       color: var(--text-soft);
     }
 
     .metric-icon {
-      width: 26px;
-      height: 26px;
+      width: 28px;
+      height: 28px;
       border-radius: 10px;
       background: rgba(255,255,255,0.02);
       display: flex;
@@ -511,19 +513,19 @@
     }
 
     .metric-icon svg {
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
       stroke-width: 2.4;
     }
 
     .metric-value {
-      font-size: 26px;
+      font-size: 28px;
       font-weight: 600;
       z-index: 1;
     }
 
     .metric-foot {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-soft);
       z-index: 1;
     }
@@ -538,7 +540,7 @@
       background: var(--bg-surface-soft);
       border-radius: var(--radius-lg);
       border: 1px solid rgba(255,255,255,0.05);
-      padding: 14px 16px 16px;
+      padding: 15px 17px 17px;
       box-shadow: var(--shadow-soft);
     }
 
@@ -551,7 +553,7 @@
     }
 
     .panel-title {
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 600;
       display: flex;
       align-items: center;
@@ -559,12 +561,12 @@
     }
 
     .panel-title svg {
-      width: 17px;
-      height: 17px;
+      width: 18px;
+      height: 18px;
     }
 
     .panel-subtitle {
-      font-size: 12px;
+      font-size: 13px;
       color: var(--text-soft);
     }
 
@@ -572,7 +574,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-soft);
     }
 
@@ -601,21 +603,21 @@
 
     .alert-item {
       border-radius: 10px;
-      padding: 8px 10px;
+      padding: 9px 11px;
       background: var(--bg-surface);
       border: 1px solid rgba(255,255,255,0.04);
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 12px;
+      font-size: 13px;
     }
 
     .alert-badge {
-      padding: 4px 8px;
+      padding: 4px 9px;
       border-radius: var(--radius-pill);
       background: var(--danger-soft);
       color: var(--danger);
-      font-size: 11px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.12em;
       white-space: nowrap;
@@ -630,7 +632,7 @@
     }
 
     .alert-meta {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-soft);
       margin-top: 2px;
     }
@@ -638,7 +640,7 @@
     .empty-state {
       text-align: center;
       padding: 12px 8px;
-      font-size: 12px;
+      font-size: 13px;
       color: var(--text-soft);
     }
 
@@ -658,7 +660,7 @@
 
     label {
       display: block;
-      font-size: 14px;
+      font-size: 15px;
       margin-bottom: 4px;
       color: var(--text-muted);
     }
@@ -667,12 +669,12 @@
     select,
     input:not([type="checkbox"]) {
       width: 100%;
-      padding: 9px 10px;
+      padding: 10px 11px;
       border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.06);
       background: var(--bg-surface);
       color: var(--text-main);
-      font-size: 14px;
+      font-size: 15px;
       outline: none;
       box-sizing: border-box;
       transition: border-color 0.15s ease,
@@ -690,16 +692,16 @@
     input::placeholder {
       color: var(--text-soft);
       opacity: 0.9;
-      font-size: 13px;
+      font-size: 14px;
     }
 
     button.primary-btn {
-      padding: 10px 14px;
+      padding: 10px 15px;
       border-radius: var(--radius-pill);
       border: none;
       background: var(--accent);
       color: #fff;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 500;
       cursor: pointer;
       transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.08s ease;
@@ -725,13 +727,13 @@
 
     .block-item, .contact-item, .rule-item {
       border-radius: 12px;
-      padding: 10px 12px;
+      padding: 11px 13px;
       background: var(--bg-surface);
       border: 1px solid rgba(255,255,255,0.05);
       display: flex;
       justify-content: space-between;
       gap: 10px;
-      font-size: 13px;
+      font-size: 14px;
     }
 
     .contact-item.disabled {
@@ -741,8 +743,8 @@
     .contact-actions button,
     .rule-actions button {
       border-radius: 999px;
-      padding: 5px 10px;
-      font-size: 11px;
+      padding: 6px 11px;
+      font-size: 12px;
       border: none;
       cursor: pointer;
       background: rgba(255,255,255,0.05);
@@ -757,8 +759,8 @@
     /* botão de desbloquear com cor de perigo */
     .block-item .actions button {
       border-radius: 999px;
-      padding: 6px 12px;
-      font-size: 12px;
+      padding: 7px 12px;
+      font-size: 13px;
       border: none;
       cursor: pointer;
       background: var(--danger-soft);
@@ -774,7 +776,7 @@
     details summary {
       list-style: none;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 15px;
       color: var(--text-muted);
       margin-bottom: 6px;
       position: relative;
@@ -787,7 +789,7 @@
       left: 0;
       top: 0;
       transform: translateY(2px);
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-soft);
       transition: transform 0.15s ease;
     }
@@ -1062,7 +1064,7 @@
               </button>
             </div>
 
-            <h3 style="margin-top:20px;font-size:14px;">Contatos cadastrados</h3>
+            <h3 style="margin-top:20px;font-size:15px;">Contatos cadastrados</h3>
             <ul id="contacts-list" class="contacts-list"></ul>
           </div>
         </section>
@@ -1082,7 +1084,7 @@
               </div>
             </div>
 
-            <h4 style="font-size:13px;margin-bottom:6px;">Criar regra rápida</h4>
+            <h4 style="font-size:15px;margin-bottom:6px;">Criar regra rápida</h4>
             <div class="form-group">
               <label>Nome</label>
               <input id="ruleName" placeholder="Ex.: Bloquear >100 KB" />
@@ -1144,10 +1146,10 @@
               Criar regra
             </button>
 
-            <h4 style="font-size:13px;margin-top:18px;">Presets</h4>
+            <h4 style="font-size:15px;margin-top:18px;">Presets</h4>
             <ul id="presetList" class="rules-list"></ul>
 
-            <h4 style="font-size:13px;margin-top:18px;">Regras ativas</h4>
+            <h4 style="font-size:15px;margin-top:18px;">Regras ativas</h4>
             <ul id="ruleList" class="rules-list"></ul>
           </div>
         </section>
@@ -1286,7 +1288,7 @@
           li.innerHTML = `
             <div class="info">
               <div><strong>Switch ${block.dpid}</strong> — ${block.ip_src} → ${block.ip_dst}</div>
-              <div style="font-size:11px;color:#9da4be;">${block.timestamp} | ${block.reason}</div>
+              <div style="font-size:12px;color:#9da4be;">${block.timestamp} | ${block.reason}</div>
             </div>
             <div class="actions">
               <button onclick="unblockTraffic(${block.id})">Desbloquear</button>
@@ -1581,11 +1583,11 @@
             <div class="contact-info">
               <div>
                 <strong>${contact.name}</strong>
-                <span style="font-size:11px;margin-left:8px;color:${contact.enabled ? '#40d1a7' : '#9da4be'};">
+                <span style="font-size:12px;margin-left:8px;color:${contact.enabled ? '#40d1a7' : '#9da4be'};">
                   ${contact.enabled ? 'ATIVO' : 'INATIVO'}
                 </span>
               </div>
-              <div style="font-size:12px;color:#9da4be;">${contact.email}</div>
+              <div style="font-size:13px;color:#9da4be;">${contact.email}</div>
             </div>
             <div class="contact-actions">
               <button onclick='editContact(${JSON.stringify(contact)})'>Editar</button>
@@ -1617,7 +1619,7 @@
           li.innerHTML = `
             <div class="rule-info">
               <strong>${p.name}</strong><br>
-              <span style="font-size:12px;color:#9da4be;">${p.description || ''}</span>
+              <span style="font-size:13px;color:#9da4be;">${p.description || ''}</span>
             </div>
           `;
           li.onclick = () => {
@@ -1692,8 +1694,8 @@
           li.innerHTML = `
             <div class="info">
               <strong>${r.name}</strong> — ${r.action.toUpperCase()} ${r.enabled ? '' : '(desativada)'}<br>
-              <span style="font-size:12px;color:#9da4be;">${r.description || ''}</span><br>
-              <span style="font-size:11px;color:#70758a;">
+              <span style="font-size:13px;color:#9da4be;">${r.description || ''}</span><br>
+              <span style="font-size:12px;color:#70758a;">
                 Filtros:
                 ${r.ip_src || ''} ${r.ip_dst || ''} ${r.protocol || ''}
                 ${r.port_src ? 'sport='+r.port_src : ''} ${r.port_dst ? 'dport='+r.port_dst : ''}
