@@ -4,12 +4,10 @@
   <meta charset="UTF-8" />
   <title>ARGOS IDS Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Feather icons (para ícones leves e sem emoji) -->
   <script src="https://unpkg.com/feather-icons"></script>
 
   <style>
     :root {
-      /* Paleta mais neutra, próxima do original */
       --bg-body: #101217;
       --bg-surface: #171b23;
       --bg-surface-soft: #1d222c;
@@ -20,7 +18,7 @@
       --text-muted: #9da4be;
       --text-soft: #6b7184;
 
-      --accent: #2d8cff;      /* azul só de detalhe */
+      --accent: #2d8cff;     
       --accent-soft: rgba(45, 140, 255, 0.14);
       --accent-strong: #0f60c0;
 
@@ -52,14 +50,12 @@
       display: flex;
     }
 
-    /* ===== SHELL GERAL ===== */
 
     .app-shell {
       display: flex;
       width: 100%;
     }
 
-    /* ===== SIDEBAR ===== */
 
     .sidebar {
       width: 250px;
@@ -120,32 +116,6 @@
     }
 
     body.sidebar-collapsed .sidebar-title {
-      display: none;
-    }
-
-    .engine-status {
-      margin-left: auto;
-      padding: 4px 12px;
-      border-radius: var(--radius-pill);
-      background: rgba(64, 209, 167, 0.1);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--success);
-    }
-
-    .engine-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 8px rgba(64, 209, 167, 0.9);
-    }
-
-    body.sidebar-collapsed .engine-status {
       display: none;
     }
 
@@ -331,7 +301,6 @@
       gap: 18px;
     }
 
-    /* ===== CARDS / LAYOUT ===== */
 
     .mode-card {
       display: flex;
@@ -534,7 +503,6 @@
     .metric-card.legit .metric-value { color: var(--success); }
     .metric-card.rules .metric-value { color: var(--accent); }
 
-    /* ===== CHART / ALERTS ===== */
 
     .panel {
       background: var(--bg-surface-soft);
@@ -644,7 +612,6 @@
       color: var(--text-soft);
     }
 
-    /* ===== SEÇÕES GENÉRICAS ===== */
 
     .section {
       display: none;
@@ -665,7 +632,6 @@
       color: var(--text-muted);
     }
 
-    /* inputs e selects unificados (inclusive os dos presets) */
     select,
     input:not([type="checkbox"]) {
       width: 100%;
@@ -756,7 +722,6 @@
       background: rgba(255,255,255,0.11);
     }
 
-    /* botão de desbloquear com cor de perigo */
     .block-item .actions button {
       border-radius: 999px;
       padding: 7px 12px;
@@ -772,7 +737,6 @@
       color: #fff;
     }
 
-    /* details com setinha bonitinha */
     details summary {
       list-style: none;
       cursor: pointer;
@@ -805,16 +769,11 @@
 </head>
 <body class="sidebar-hidden-mobile">
   <div class="app-shell">
-    <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-title">
           <span class="sidebar-title-main">ARGOS IDS</span>
           <span class="sidebar-title-sub">Network defense</span>
-        </div>
-        <div class="engine-status">
-          <span class="engine-dot"></span>
-          <span>Engine online</span>
         </div>
       </div>
 
@@ -873,7 +832,6 @@
       </header>
 
       <main class="main-scroll">
-        <!-- DASHBOARD -->
         <section id="dashboard-section" class="section active">
           <div class="mode-card">
             <div class="mode-info">
@@ -978,12 +936,10 @@
               </div>
             </div>
             <ul id="alerts-list" class="alerts-list">
-              <!-- preenchido via JS -->
             </ul>
           </div>
         </section>
 
-        <!-- BLOQUEAR TRÁFEGO -->
         <section id="block-section" class="section">
           <div class="panel">
             <div class="panel-header">
@@ -1011,7 +967,6 @@
           </div>
         </section>
 
-        <!-- BLOQUEIOS ATIVOS -->
         <section id="blocked-section" class="section">
           <div class="panel">
             <div class="panel-header">
@@ -1027,7 +982,6 @@
           </div>
         </section>
 
-        <!-- CONTATOS -->
         <section id="contacts-section" class="section">
           <div class="panel">
             <div class="panel-header">
@@ -1069,7 +1023,6 @@
           </div>
         </section>
 
-        <!-- REGRAS (PRÉ-FILTRO) -->
         <section id="rules-section" class="section">
           <div class="panel">
             <div class="panel-header">
@@ -1158,10 +1111,8 @@
   </div>
 
   <script>
-    // ===== ICONES =====
     feather.replace();
 
-    // ===== SIDEBAR / NAVEGAÇÃO =====
     const navItems = document.querySelectorAll('.nav-item');
     const sections = ['dashboard','block','blocked','contacts','rules'];
 
@@ -1188,7 +1139,6 @@
 
     const menuToggleBtn = document.getElementById('menu-toggle');
     menuToggleBtn.addEventListener('click', () => {
-      // desktop: colapsa; mobile: esconde de vez
       if (window.innerWidth <= 900) {
         document.body.classList.toggle('sidebar-hidden-mobile');
       } else {
@@ -1196,7 +1146,6 @@
       }
     });
 
-    // ===== BLOQUEIO DE TRÁFEGO =====
 
     async function fetchSwitches() {
       try {
@@ -1301,15 +1250,13 @@
       }
     }
 
-    // ===== DASHBOARD / GRÁFICO =====
 
     let trafficChart = null;
-    const MAX_POINTS = 60; // limite para evitar travar quando o ataque gera muito ponto
+    const MAX_POINTS = 60; 
 
     function normalizeTrafficData(raw) {
       if (!raw || !raw.labels || !raw.datasets) return raw;
 
-      // se vierem MUITOS pontos, mantém só os últimos MAX_POINTS
       const len = raw.labels.length;
       if (len > MAX_POINTS) {
         const start = len - MAX_POINTS;
@@ -1344,10 +1291,8 @@
         document.getElementById('legitTraffic').textContent = stats.legitimate_traffic_pct + '%';
         document.getElementById('rules').textContent = stats.rules_active;
 
-        // normaliza / limita pontos
         traffic = normalizeTrafficData(traffic);
 
-        // opções sem animação pesada pra não travar sob ataque
         const chartOptions = {
           responsive: true,
           maintainAspectRatio: false,
@@ -1416,7 +1361,6 @@
       }
     }
 
-    // ===== MODO DE MITIGAÇÃO =====
 
     async function fetchMode() {
       try {
@@ -1458,7 +1402,6 @@
       }
     }
 
-    // ===== CONTATOS =====
     let editingContactId = null;
 
     async function saveContact() {
@@ -1604,7 +1547,6 @@
       }
     }
 
-    // ===== REGRAS =====
 
     async function fetchRulePresets() {
       try {
@@ -1735,7 +1677,6 @@
       } catch (e) { alert('❌ ' + e); }
     }
 
-    // ===== INIT =====
     async function init() {
       await fetchSwitches();
       await fetchMode();
