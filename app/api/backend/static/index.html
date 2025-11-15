@@ -96,24 +96,6 @@
       padding: 6px 4px 4px;
     }
 
-    .argos-logo-wrap {
-      width: 34px;
-      height: 34px;
-      border-radius: 12px;
-      background: radial-gradient(circle at 30% 0%, #47a4ff 0, #1f6fde 45%, #0f325e 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.55);
-    }
-
-    .argos-logo-wrap img {
-      width: 24px;
-      height: 24px;
-      object-fit: contain;
-      filter: drop-shadow(0 0 5px rgba(0,0,0,0.6));
-    }
-
     .sidebar-title {
       display: flex;
       flex-direction: column;
@@ -465,8 +447,20 @@
 
     .grid-metrics {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 14px;
+    }
+
+    @media (max-width: 1200px) {
+      .grid-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 700px) {
+      .grid-metrics {
+        grid-template-columns: 1fr;
+      }
     }
 
     .metric-card {
@@ -776,7 +770,7 @@
       color: #fff;
     }
 
-    /* detalhes com setinha */
+    /* details com setinha bonitinha */
     details summary {
       list-style: none;
       cursor: pointer;
@@ -812,10 +806,6 @@
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <div class="argos-logo-wrap">
-          <!-- Usa o logo do Argos que você já tem no projeto -->
-          <img src="Figuras/argos-logo.png" alt="ARGOS-IDS Logo">
-        </div>
         <div class="sidebar-title">
           <span class="sidebar-title-main">ARGOS IDS</span>
           <span class="sidebar-title-sub">Network defense</span>
