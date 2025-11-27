@@ -15,9 +15,6 @@ from ryu.controller import event
 from sklearn import set_config
 from gmail_utils import send_gmail  
 from ML.predict_knn import predict_knn
-from ML.predict_svm import predict_svm
-from ML.predict_decision_tree import predict_decision_tree
-from ML.predict_random_forest import predict_random_forest
 
 set_config(transform_output="pandas")
 ryu_instance = None
@@ -277,11 +274,9 @@ class ControllerAPI(app_manager.RyuApp):
                 with open("mdls/{}_model_bundle.pkl".format(name), "rb") as f:
                     bundle = pickle.load(f)
                     
-                # VALIDAR se o modelo está treinado
                 if isinstance(bundle, dict):
                     model = bundle.get('model')
                     if model is not None:
-                        # Verificar se tem o atributo que indica treinamento
                         if hasattr(model, 'classes_') or hasattr(model, 'n_features_in_'):
                             self.logger.info("Modelo {} validado - está treinado".format(name))
                             return bundle
@@ -292,7 +287,6 @@ class ControllerAPI(app_manager.RyuApp):
                         self.logger.error("Bundle {} não contém 'model'".format(name))
                         return None
                 else:
-                    # Se não for dict, pode ser modelo direto
                     if hasattr(bundle, 'classes_') or hasattr(bundle, 'n_features_in_'):
                         self.logger.info("Modelo {} (formato direto) validado".format(name))
                         return {'model': bundle}
@@ -307,10 +301,7 @@ class ControllerAPI(app_manager.RyuApp):
                 return None
 
         model_files = {
-            'decision_tree': 'dt',
             'knn': 'knn',
-            'random_forest': 'randomforest',
-            'svm': 'svm'
         }
         
         loaded_count = 0
@@ -458,13 +449,6 @@ class ControllerAPI(app_manager.RyuApp):
                 flags = stat.get('flags', 0)
 
                 flow_hash = self.generate_flow_hash(ip_src, ip_dst, tp_src, tp_dst, ip_proto)
-
-                #if not self.is_flow_updated(flow_hash, packet_count, byte_count):
-                #    flows_skipped_no_update += 1
-                #    self.logger.debug("Fluxo {} não teve mudanças (packets={}, bytes={})".format(
-                #        flow_hash[:16], packet_count, byte_count
-                #    ))
-                #    continue
 
                 total_duration_sec = duration_sec + (duration_nsec / 1e9)
                 
@@ -632,7 +616,6 @@ class ControllerAPI(app_manager.RyuApp):
                 try:
                     self.logger.info("Executando predição com modelo: {}".format(name))
                     
-                    # Verificar se modelo está carregado corretamente
                     if bundle is None:
                         self.logger.error("Bundle do modelo {} está None!".format(name))
                         continue
@@ -642,12 +625,6 @@ class ControllerAPI(app_manager.RyuApp):
                         print("\nDistribuição das predições:", pd.Series(pred).value_counts())
                         print("Exemplo das primeiras 5 linhas:")
                         print(_[['prediction']].head())
-                    #elif name == 'svm':
-                    #    pred, _ = predict_svm(bundle, temp_filename)
-                    #elif name == 'decision_tree':
-                    #    pred, _ = predict_decision_tree(bundle, temp_filename)
-                    #elif name == 'random_forest':
-                    #    pred, _ = predict_random_forest(bundle, temp_filename)
                     else:
                         self.logger.warning("Modelo desconhecido: {}".format(name))
                         continue

@@ -325,7 +325,8 @@ def get_hosts():
         response = requests.get("{}/v1.0/topology/hosts".format(RYU_REST_URL))
         response.raise_for_status()
         hosts = response.json()
-        return {"hosts": [{"mac": h.get("mac", "N/A")} for h in hosts]}
+        unique_hosts = {host['mac']: host for host in hosts}  
+        return {"hosts": [{"mac": host['mac'], "ip": host.get("ip", "N/A")} for host in unique_hosts.values()]}
     except Exception as e:
         return {"error": "Falha ao obter hosts do Ryu: {}".format(str(e))}
     

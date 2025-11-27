@@ -62,11 +62,11 @@ def create_topology():
     h2.cmd('iperf -c 10.0.0.1 -t 5 &')
     
     info('\n*** Entrando no CLI do Mininet\n')
-    info('*** Comandos úteis:\n')
+    info('*** Comandos uteis:\n')
     info('  pingall          - testa conectividade\n')
     info('  h1 iperf -s &    - inicia servidor\n')
     info('  h2 iperf -c 10.0.0.1 -t 10  - cliente\n')
-    info('  dump             - mostra informações da rede\n')
+    info('  dump             - mostra informacoes da rede\n')
     info('  dpctl dump-flows - mostra flows do switch\n')
     info('\n')
     
