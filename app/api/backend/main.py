@@ -299,10 +299,11 @@ def get_network_overview():
 
         switches = switches_resp.json()
         hosts = hosts_resp.json()
+        unique_hosts = {host['mac']: host for host in hosts}
 
         return {
             "switches": len(switches),
-            "hosts": len(hosts)
+            "hosts": len(unique_hosts)
         }
     except Exception as e:
         return {"error": "Falha ao obter dados do Ryu: {}".format(str(e))}
