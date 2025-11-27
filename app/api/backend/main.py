@@ -140,8 +140,17 @@ def block_traffic_rest(dpid: int, ip_src: str, ip_dst: str, reason: str = "Manua
     try:
         response = requests.post(f"{RYU_REST_URL}/stats/flowentry/add", json=flow_rule, timeout=5)
         if response.status_code == 200:
-            # Salvar no banco
             conn = get_db_connection()
+            
+            existing = conn.execute(
+                "SELECT id FROM blocked_flows WHERE dpid = ? AND ip_src = ? AND ip_dst = ? AND active = 1",
+                (dpid, ip_src, ip_dst)
+            ).fetchone()
+            
+            if existing:
+                conn.close()
+                return {"status": "info", "message": f"⚠️ Bloqueio já existe: {ip_src} → {ip_dst}"}
+            
             conn.execute(
                 "INSERT INTO blocked_flows (dpid, ip_src, ip_dst, timestamp, reason, active) VALUES (?, ?, ?, ?, ?, ?)",
                 (dpid, ip_src, ip_dst, datetime.datetime.now().timestamp(), reason, 1)

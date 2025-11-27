@@ -131,8 +131,7 @@ class ControllerAPI(app_manager.RyuApp):
             ip_dst TEXT NOT NULL,
             timestamp REAL NOT NULL,
             reason TEXT DEFAULT 'IDS block',
-            active BOOLEAN DEFAULT 1,
-            UNIQUE(dpid, ip_src, ip_dst, active)
+            active BOOLEAN DEFAULT 1
     )
     """)
         cursor.execute("""
