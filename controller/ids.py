@@ -776,14 +776,14 @@ class ControllerAPI(app_manager.RyuApp):
 
             cur.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS ux_block
-            ON blocked_flows(dpid, ip_src, ip_dst, active)
+            ON blocked_flows(dpid, ip_src, ip_dst)
             """)
 
             cur.execute("""
                 INSERT INTO blocked_flows(dpid, ip_src, ip_dst, timestamp, reason, active)
                 VALUES (?, ?, ?, ?, ?, 1)
-                ON CONFLICT(dpid, ip_src, ip_dst, active)
-                DO UPDATE SET timestamp=excluded.timestamp, reason=excluded.reason
+                ON CONFLICT(dpid, ip_src, ip_dst)
+                DO UPDATE SET timestamp=excluded.timestamp, reason=excluded.reason, active=1
             """, (int(dpid), str(ip_src), str(ip_dst), time.time(), reason))
             conn.commit()
             conn.close()
